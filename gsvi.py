@@ -14,6 +14,7 @@ from pathlib import Path
 import webbrowser
 import signal
 import mimetypes
+import requests
 
 #===========================启动服务===========================
 origin = ["*"] # 允许所有来源的请求
@@ -367,10 +368,17 @@ async def redirect_to_index(request: Request, call_next):
         return FileResponse("gsvi_ui/index.html")
     return response
 
+def get_public_ip():
+    try:
+        ip = requests.get("https://api.ipify.org", timeout=2).text
+        return ip
+    except Exception:
+        return "0.0.0.0"
+
 if __name__ == "__main__":
     #===========================启动参数===========================
     parser = argparse.ArgumentParser(description="TTS Inference API")
-    parser.add_argument("-s","--host", type=str, default="0.0.0.0", help="主机地址")
+    parser.add_argument("-s","--host", type=str, default=get_public_ip(), help="主机地址(自动获取外网IP)")
     parser.add_argument("-p","--port", type=int, default=8001, help="端口")
     parser.add_argument("-k","--key", type=str, default="", help="推理密钥")
     parser.add_argument("-c","--config", type=str, default="./GPT_SoVITS/configs/tts_infer.yaml", help="配置文件路径")
