@@ -370,8 +370,9 @@ async def redirect_to_index(request: Request, call_next):
 
 def get_public_ip():
     try:
-        ip = requests.get("https://api.ipify.org", timeout=2).text
-        return ip
+        # ip = requests.get("https://api.ipify.org", timeout=2).text
+        # return ip
+        return "0.0.0.0"
     except Exception:
         return "0.0.0.0"
 
