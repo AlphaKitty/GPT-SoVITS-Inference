@@ -65,10 +65,13 @@ services:
     shm_size: "16g"
     restart: unless-stopped
     # runtime: nvidia
-    device_requests:
-      - driver: "nvidia"
-        count: -1
-        capabilities: ["gpu"]
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all  # 或者指定数量，如 1
+              capabilities: [gpu]
   GPT-SoVITS-CU128-Lite:
     image: xxxxrt666/gpt-sovits:latest-cu128-lite
     container_name: GPT-SoVITS-CU128-Lite
@@ -89,7 +92,10 @@ services:
     shm_size: "16g"
     restart: unless-stopped
     # runtime: nvidia
-    device_requests:
-      - driver: "nvidia"
-        count: -1
-        capabilities: ["gpu"]
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
