@@ -108,16 +108,15 @@ if groups $USER | grep -vwq "docker"; then
   echo "⚠️ 你需要退出当前终端或重启电脑，重新进来后才能免sudo使用docker"
 fi
 
-# ---------- 6. 克隆/拉取代码 ----------
-WORKDIR="./GPT-SoVITS-Inference"
-if [ ! -d "$WORKDIR" ]; then
-  echo "📦 克隆项目..."
-  git clone https://github.com/AlphaKitty/GPT-SoVITS-Inference.git "$WORKDIR"
+# ---------- 6. 更新当前工程代码 ----------
+echo "📦 检查并更新当前工程..."
+if [ -d ".git" ]; then
+  echo "✅ 检测到 git 仓库，拉取最新代码"
+  git pull
 else
-  echo "✅ 发现本地已有项目目录，拉取最新代码"
-  cd "$WORKDIR" && git pull
+  echo "⚠️  当前目录不是 git 仓库，跳过代码更新"
+  echo "   提示：建议通过 git clone 下载项目后再运行此脚本"
 fi
-cd "$WORKDIR"
 
 # ---------- 7. 检测并适配 docker compose / docker-compose ----------
 if command -v docker &> /dev/null && docker compose version &> /dev/null; then
@@ -139,16 +138,167 @@ fi
 
 echo "✅ 选用的 compose 命令为: $COMPOSE_RUN"
 
-# ---------- 8. 拉取镜像 ----------
+# ---------- 8. 下载预训练模型 ----------
+echo ""
+echo "=========================================="
+echo "📦 检查预训练模型"
+echo "=========================================="
+
+MODELS_DIR="GPT_SoVITS/pretrained_models"
+NEED_DOWNLOAD=0
+
+# 检查模型是否存在
+if [ ! -f "$MODELS_DIR/gsv-v2final-pretrained/s1bert25hz-5kh-longer-epoch=12-step=369668.ckpt" ] || \
+   [ ! -f "$MODELS_DIR/gsv-v2final-pretrained/s2G2333k.pth" ] || \
+   [ ! -f "$MODELS_DIR/gsv-v2final-pretrained/s2D2333k.pth" ] || \
+   [ ! -d "$MODELS_DIR/chinese-roberta-wwm-ext-large" ] || \
+   [ ! -d "$MODELS_DIR/chinese-hubert-base" ]; then
+    NEED_DOWNLOAD=1
+fi
+
+if [ $NEED_DOWNLOAD -eq 1 ]; then
+    echo "⚠️  检测到缺少预训练模型 (约2.8GB)"
+    echo ""
+    echo "📋 这些模型是音色克隆和TTS功能的必要组件:"
+    echo "   1. GPT-SoVITS 基础模型 (~1.2GB) - 文本理解和语音生成"
+    echo "   2. 中文 BERT 模型 (~1.2GB) - 中文语义理解"
+    echo "   3. 中文 HuBERT 模型 (~400MB) - 音色特征提取"
+    echo ""
+
+    read -p "是否现在下载? (y/n): " download_confirm
+    if [ "$download_confirm" == "y" ]; then
+        # 创建目录
+        mkdir -p $MODELS_DIR/gsv-v2final-pretrained
+        mkdir -p $MODELS_DIR/chinese-roberta-wwm-ext-large
+        mkdir -p $MODELS_DIR/chinese-hubert-base
+
+        echo ""
+        echo "选择下载方式:"
+        echo "  1) HuggingFace 镜像 (国外网络快)"
+        echo "  2) ModelScope 镜像 (国内网络快) ⭐推荐"
+        echo "  3) 跳过，稍后手动下载"
+        echo ""
+        read -p "请选择 [1-3]: " download_method
+
+        cd $MODELS_DIR
+
+        if [ "$download_method" == "1" ]; then
+            # HuggingFace 下载
+            if command -v git &> /dev/null && command -v git-lfs &> /dev/null; then
+                echo "📥 从 HuggingFace 下载模型..."
+
+                if [ ! -f "gsv-v2final-pretrained/s1bert25hz-5kh-longer-epoch=12-step=369668.ckpt" ]; then
+                    echo "下载 GPT-SoVITS 基础模型..."
+                    git clone https://huggingface.co/lj1995/GPT-SoVITS gsv-v2final-pretrained
+                fi
+
+                if [ ! -d "chinese-roberta-wwm-ext-large/config.json" ]; then
+                    echo "下载中文 BERT 模型..."
+                    git clone https://huggingface.co/hfl/chinese-roberta-wwm-ext-large
+                fi
+
+                if [ ! -d "chinese-hubert-base/config.json" ]; then
+                    echo "下载中文 HuBERT 模型..."
+                    git clone https://huggingface.co/TencentGameMate/chinese-hubert-base
+                fi
+
+                echo "✅ 模型下载完成!"
+            else
+                echo "❌ 未安装 git-lfs，请先安装: sudo apt-get install git-lfs"
+                echo "   或选择方式2使用 ModelScope 下载"
+                exit 1
+            fi
+
+        elif [ "$download_method" == "2" ]; then
+            # ModelScope 下载
+            echo "📥 从 ModelScope 下载模型..."
+
+            DOWNLOAD_CMD=""
+            if command -v aria2c &> /dev/null; then
+                DOWNLOAD_CMD="aria2c -x 16 -s 16 -k 1M"
+                echo "✅ 使用 aria2c 多线程下载"
+            elif command -v wget &> /dev/null; then
+                DOWNLOAD_CMD="wget -c"
+                echo "✅ 使用 wget 下载"
+            else
+                echo "❌ 未检测到 aria2c 或 wget"
+                exit 1
+            fi
+
+            # 下载 GPT-SoVITS 基础模型
+            echo "📦 [1/5] 下载 GPT 模型 checkpoint..."
+            cd gsv-v2final-pretrained
+            if [ ! -f "s1bert25hz-5kh-longer-epoch=12-step=369668.ckpt" ]; then
+                $DOWNLOAD_CMD -o s1bert25hz-5kh-longer-epoch=12-step=369668.ckpt \
+                    "https://www.modelscope.cn/api/v1/models/iic/speech_personal_sambert-hifigan_nsf_tts_zh-cn_pretrain_16k/repo?Revision=master&FilePath=s1bert25hz-5kh-longer-epoch%3D12-step%3D369668.ckpt"
+            fi
+
+            echo "📦 [2/5] 下载 SoVITS Generator 模型..."
+            if [ ! -f "s2G2333k.pth" ]; then
+                $DOWNLOAD_CMD -o s2G2333k.pth \
+                    "https://www.modelscope.cn/api/v1/models/iic/speech_personal_sambert-hifigan_nsf_tts_zh-cn_pretrain_16k/repo?Revision=master&FilePath=s2G2333k.pth"
+            fi
+
+            echo "📦 [3/5] 下载 SoVITS Discriminator 模型..."
+            if [ ! -f "s2D2333k.pth" ]; then
+                $DOWNLOAD_CMD -o s2D2333k.pth \
+                    "https://www.modelscope.cn/api/v1/models/iic/speech_personal_sambert-hifigan_nsf_tts_zh-cn_pretrain_16k/repo?Revision=master&FilePath=s2D2333k.pth"
+            fi
+            cd ..
+
+            # 下载 BERT 模型
+            echo "📦 [4/5] 下载中文 BERT 模型..."
+            if [ ! -f "chinese-roberta-wwm-ext-large/config.json" ]; then
+                if command -v git &> /dev/null; then
+                    git clone https://www.modelscope.cn/tiansz/chinese-roberta-wwm-ext-large.git chinese-roberta-wwm-ext-large
+                else
+                    echo "⚠️  需要 git 来克隆 BERT 模型"
+                fi
+            fi
+
+            # 下载 HuBERT 模型
+            echo "📦 [5/5] 下载中文 HuBERT 模型..."
+            if [ ! -f "chinese-hubert-base/config.json" ]; then
+                if command -v git &> /dev/null; then
+                    git clone https://www.modelscope.cn/TencentGameMate/chinese-hubert-base.git chinese-hubert-base
+                else
+                    echo "⚠️  需要 git 来克隆 HuBERT 模型"
+                fi
+            fi
+
+            echo "✅ 模型下载完成!"
+
+        elif [ "$download_method" == "3" ]; then
+            echo ""
+            echo "⚠️  已跳过模型下载"
+            echo "   请稍后运行: bash download_pretrained_models.sh"
+            echo ""
+        else
+            echo "❌ 无效选择"
+            exit 1
+        fi
+
+        # 返回项目根目录
+        cd ../..
+    else
+        echo "⚠️  已跳过模型下载，Docker 启动时可能会报错"
+        echo "   稍后可运行: bash download_pretrained_models.sh"
+    fi
+else
+    echo "✅ 预训练模型已存在，跳过下载"
+fi
+
+# ---------- 9. 拉取镜像 ----------
+echo ""
 echo "📦 拉取 Docker 镜像及依赖"
 $COMPOSE_RUN pull
 
-# ---------- 9. 启动工程 ----------
+# ---------- 10. 启动工程 ----------
+echo ""
 echo "🚀 启动服务（$COMPOSE_RUN up -d）"
-# $COMPOSE_RUN up -d --device CU128
 $COMPOSE_RUN up -d
 
-# ---------- 10. 获取公网IP与端口 ----------
+# ---------- 11. 获取公网IP与端口 ----------
 IP=$(curl -s http://ipinfo.io/ip)
 PORT=$(grep -m1 -A2 'ports:' docker-compose.yaml | grep -o '[0-9]\{4,5\}:[0-9]\{4,5\}' | head -n1 | awk -F: '{print $1}')
 if [ -z "$PORT" ]; then
@@ -159,9 +309,21 @@ echo "=============================================="
 echo "🎉 启动成功！"
 echo "【公网访问地址】http://${IP}:${PORT}/"
 echo "【本机访问地址】http://localhost:${PORT}/"
-echo "=============================================="
+echo ""
+echo "📋 功能说明:"
+echo "   - WebUI 界面: http://localhost:${PORT}/"
+echo "   - API 文档: http://localhost:${PORT}/docs"
+echo "   - 音色克隆测试: 打开 tts_test.html"
+echo ""
+echo "💡 快速开始音色克隆:"
+echo "   1. 准备几秒钟的参考音频"
+echo "   2. 在 tts_test.html 中上传音频"
+echo "   3. 输入参考文本和目标文本"
+echo "   4. 生成克隆音色的语音"
+echo "==============================================="
 
-# ---------- 11. 实时日志监控 ----------
+# ---------- 12. 实时日志监控 ----------
+echo ""
 echo "----- 实时监控 compose 日志 -----"
 $COMPOSE_RUN logs -f
 
