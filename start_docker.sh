@@ -3,7 +3,7 @@
 # GPT-SoVITS Docker Compose 启动脚本
 # 适用于 Ubuntu 系统
 
-set -e  # 遇到错误时退出
+# 注意: 不在开头使用 set -e，因为需要处理某些命令的失败情况
 
 # 颜色定义
 RED='\033[0;31m'
@@ -71,12 +71,29 @@ install_docker() {
     # 检测系统类型
     detect_os
 
-    # 检查是否有 apt-get（Ubuntu/Debian 的包管理器）
-    if ! command -v apt-get &> /dev/null && ! command -v apt &> /dev/null; then
+    # 检查是否有 apt-get 或 apt（Ubuntu/Debian 的包管理器）
+    HAS_APT=false
+
+    if command -v apt-get >/dev/null 2>&1; then
+        HAS_APT=true
+        print_success "检测到 apt-get: $(command -v apt-get)"
+    elif command -v apt >/dev/null 2>&1; then
+        HAS_APT=true
+        print_success "检测到 apt: $(command -v apt)"
+    elif which apt-get >/dev/null 2>&1; then
+        HAS_APT=true
+        print_success "检测到 apt-get (使用 which): $(which apt-get)"
+    elif which apt >/dev/null 2>&1; then
+        HAS_APT=true
+        print_success "检测到 apt (使用 which): $(which apt)"
+    fi
+
+    if [ "$HAS_APT" = false ]; then
         print_error "此脚本仅支持 Ubuntu/Debian 系统（需要 apt/apt-get）"
         if [ "$OS_TYPE" != "unknown" ]; then
             print_info "检测到的系统类型: $OS_TYPE"
         fi
+        print_info "请检查您的 PATH 环境变量: $PATH"
         print_info "如果您使用的是 Ubuntu/Debian，请确保已安装 apt 或 apt-get"
         exit 1
     fi
