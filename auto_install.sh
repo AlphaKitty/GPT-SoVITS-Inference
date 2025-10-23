@@ -145,7 +145,8 @@ $COMPOSE_RUN pull
 
 # ---------- 9. 启动工程 ----------
 echo "🚀 启动服务（$COMPOSE_RUN up -d）"
-$COMPOSE_RUN up -d --device CU128
+# $COMPOSE_RUN up -d --device CU128
+$COMPOSE_RUN up -d
 
 # ---------- 10. 获取公网IP与端口 ----------
 IP=$(curl -s http://ipinfo.io/ip)
