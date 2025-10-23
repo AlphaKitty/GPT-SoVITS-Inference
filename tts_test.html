@@ -261,6 +261,28 @@
             100% { transform: rotate(360deg); }
         }
 
+        /* 录音状态样式 */
+        .recording {
+            background: #e3f2fd !important;
+            border: 2px solid #2196f3 !important;
+            animation: pulse 1.5s infinite;
+        }
+
+        @keyframes pulse {
+            0% { box-shadow: 0 0 0 0 rgba(33, 150, 243, 0.7); }
+            70% { box-shadow: 0 0 0 10px rgba(33, 150, 243, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(33, 150, 243, 0); }
+        }
+
+        .recording-indicator {
+            color: #f44336;
+            animation: blink 1s infinite;
+        }
+
+        @keyframes blink {
+            50% { opacity: 0.3; }
+        }
+
         .grid-2 {
             display: grid;
             grid-template-columns: 1fr 1fr;
@@ -396,10 +418,47 @@
                 </div>
 
                 <div class="form-group">
-                    <label>📤 步骤1: 上传参考音频 (3-10秒清晰人声)</label>
-                    <input type="file" id="refAudio" accept="audio/*">
-                    <div style="font-size: 12px; color: #666; margin-top: 5px;">
-                        支持格式: WAV, MP3, M4A 等
+                    <label>📤 步骤1: 获取参考音频 (3-10秒清晰人声)</label>
+                    
+                    <!-- 录音控制区 -->
+                    <div style="background: #f8f9fa; padding: 15px; border-radius: 8px; margin-bottom: 10px;">
+                        <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px;">
+                            <button class="btn-primary" id="startRecordBtn" onclick="startRecording()" style="min-width: 120px;">
+                                🎤 开始录音
+                            </button>
+                            <button class="btn-secondary" id="stopRecordBtn" onclick="stopRecording()" disabled style="min-width: 120px;">
+                                ⏹️ 停止录音
+                            </button>
+                            <span id="recordingStatus" style="color: #666; font-size: 14px;">准备录音...</span>
+                        </div>
+                        
+                        <!-- 录音时长显示 -->
+                        <div id="recordingTimer" style="display: none; font-size: 14px; color: #667eea; font-weight: bold;">
+                            录音时长: <span id="recordingTime">00:00</span>
+                        </div>
+                        
+                        <!-- 录音预览播放器 -->
+                        <div id="recordingPreview" style="display: none; margin-top: 10px;">
+                            <label style="font-size: 14px; font-weight: bold; color: #333;">录音预览:</label>
+                            <audio id="recordedAudio" controls style="width: 100%; margin-top: 5px;"></audio>
+                            <div style="margin-top: 8px;">
+                                <button class="btn-success" onclick="useRecordedAudio()" style="font-size: 12px;">
+                                    ✅ 使用此录音
+                                </button>
+                                <button class="btn-secondary" onclick="clearRecording()" style="font-size: 12px;">
+                                    🗑️ 重新录制
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- 文件上传区 -->
+                    <div style="background: #f8f9fa; padding: 10px; border-radius: 8px;">
+                        <div style="font-size: 14px; font-weight: bold; margin-bottom: 8px;">或上传音频文件:</div>
+                        <input type="file" id="refAudio" accept="audio/*">
+                        <div style="font-size: 12px; color: #666; margin-top: 5px;">
+                            支持格式: WAV, MP3, M4A 等
+                        </div>
                     </div>
                 </div>
 
@@ -488,6 +547,11 @@
         // 全局变量
         let selectedModelName = '';
         let apiBase = '';
+        let mediaRecorder = null;
+        let recordedChunks = [];
+        let recordingStartTime = 0;
+        let recordingTimer = null;
+        let recordedBlob = null;
 
         // 初始化
         window.onload = function() {
@@ -499,6 +563,13 @@
                 const version = this.value;
                 document.getElementById('classicModeSection').style.display = version === 'v3' ? 'block' : 'none';
             });
+
+            // 检查浏览器是否支持录音
+            if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+                log('当前浏览器不支持录音功能', 'warning');
+                document.getElementById('startRecordBtn').disabled = true;
+                document.getElementById('recordingStatus').textContent = '浏览器不支持录音';
+            }
         };
 
         // 日志函数
@@ -523,6 +594,238 @@
         function clearLog() {
             document.getElementById('logContainer').innerHTML = '';
             log('日志已清空', 'info');
+        }
+
+        // 录音相关函数
+        async function startRecording() {
+            try {
+                log('请求麦克风权限...', 'info');
+                const stream = await navigator.mediaDevices.getUserMedia({ 
+                    audio: {
+                        echoCancellation: true,
+                        noiseSuppression: true,
+                        autoGainControl: true,
+                        sampleRate: 44100
+                    } 
+                });
+
+                recordedChunks = [];
+                recordedBlob = null;
+                
+                // 创建MediaRecorder实例
+                const options = { mimeType: 'audio/webm;codecs=opus' };
+                if (!MediaRecorder.isTypeSupported(options.mimeType)) {
+                    // 如果不支持webm，尝试其他格式
+                    options.mimeType = 'audio/wav';
+                    if (!MediaRecorder.isTypeSupported(options.mimeType)) {
+                        options.mimeType = 'audio/mp4';
+                    }
+                }
+
+                mediaRecorder = new MediaRecorder(stream, options);
+                
+                mediaRecorder.ondataavailable = (event) => {
+                    if (event.data.size > 0) {
+                        recordedChunks.push(event.data);
+                    }
+                };
+
+                mediaRecorder.onstop = () => {
+                    // 停止所有音频轨道
+                    stream.getTracks().forEach(track => track.stop());
+                    
+                    // 创建录音文件
+                    recordedBlob = new Blob(recordedChunks, { type: mediaRecorder.mimeType });
+                    const audioUrl = URL.createObjectURL(recordedBlob);
+                    
+                    // 显示预览
+                    document.getElementById('recordedAudio').src = audioUrl;
+                    document.getElementById('recordingPreview').style.display = 'block';
+                    
+                    log(`录音完成，时长: ${formatTime(Date.now() - recordingStartTime)}`, 'success');
+                };
+
+                // 开始录音
+                mediaRecorder.start();
+                recordingStartTime = Date.now();
+                
+                // 更新UI状态
+                document.getElementById('startRecordBtn').disabled = true;
+                document.getElementById('stopRecordBtn').disabled = false;
+                document.getElementById('recordingStatus').innerHTML = '<span class="recording-indicator">🔴 录音中...</span>';
+                document.getElementById('recordingTimer').style.display = 'block';
+                
+                // 添加录音样式
+                document.querySelector('.form-group').classList.add('recording');
+                
+                // 开始计时器
+                recordingTimer = setInterval(updateRecordingTime, 100);
+                
+                log('开始录音', 'success');
+                
+            } catch (error) {
+                log(`录音失败: ${error.message}`, 'error');
+                if (error.name === 'NotAllowedError') {
+                    log('请允许网站访问麦克风权限', 'warning');
+                }
+            }
+        }
+
+        function stopRecording() {
+            if (mediaRecorder && mediaRecorder.state === 'recording') {
+                mediaRecorder.stop();
+                
+                // 停止计时器
+                if (recordingTimer) {
+                    clearInterval(recordingTimer);
+                    recordingTimer = null;
+                }
+                
+                // 更新UI状态
+                document.getElementById('startRecordBtn').disabled = false;
+                document.getElementById('stopRecordBtn').disabled = true;
+                document.getElementById('recordingStatus').textContent = '录音已停止';
+                document.getElementById('recordingTimer').style.display = 'none';
+                
+                // 移除录音样式
+                document.querySelector('.form-group').classList.remove('recording');
+                
+                log('停止录音', 'info');
+            }
+        }
+
+        function updateRecordingTime() {
+            if (recordingStartTime > 0) {
+                const elapsed = Date.now() - recordingStartTime;
+                document.getElementById('recordingTime').textContent = formatTime(elapsed);
+            }
+        }
+
+        function formatTime(milliseconds) {
+            const seconds = Math.floor(milliseconds / 1000);
+            const minutes = Math.floor(seconds / 60);
+            const remainingSeconds = seconds % 60;
+            return `${minutes.toString().padStart(2, '0')}:${remainingSeconds.toString().padStart(2, '0')}`;
+        }
+
+        async function useRecordedAudio() {
+            if (recordedBlob) {
+                try {
+                    log('正在转换录音格式...', 'info');
+                    
+                    // 将录音转换为WAV格式
+                    const wavBlob = await convertToWav(recordedBlob);
+                    
+                    // 创建一个File对象，使用正确的WAV格式
+                    const file = new File([wavBlob], 'recorded_audio.wav', { type: 'audio/wav' });
+                    
+                    // 创建一个新的FileList（模拟用户选择文件）
+                    const fileList = new DataTransfer();
+                    fileList.items.add(file);
+                    
+                    // 将录音文件设置到文件上传控件
+                    document.getElementById('refAudio').files = fileList.files;
+                    
+                    log('已将录音转换为WAV格式并设置为参考音频', 'success');
+                    
+                    // 隐藏预览区域
+                    document.getElementById('recordingPreview').style.display = 'none';
+                } catch (error) {
+                    log(`录音格式转换失败: ${error.message}`, 'error');
+                }
+            }
+        }
+
+        // 将音频转换为WAV格式
+        async function convertToWav(audioBlob) {
+            return new Promise((resolve, reject) => {
+                try {
+                    // 创建音频上下文
+                    const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                    const fileReader = new FileReader();
+                    
+                    fileReader.onload = async function(e) {
+                        try {
+                            // 解码音频数据
+                            const arrayBuffer = e.target.result;
+                            const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
+                            
+                            // 转换为WAV格式
+                            const wavBuffer = audioBufferToWav(audioBuffer);
+                            const wavBlob = new Blob([wavBuffer], { type: 'audio/wav' });
+                            
+                            resolve(wavBlob);
+                        } catch (error) {
+                            reject(new Error('音频解码失败: ' + error.message));
+                        }
+                    };
+                    
+                    fileReader.onerror = () => reject(new Error('文件读取失败'));
+                    fileReader.readAsArrayBuffer(audioBlob);
+                    
+                } catch (error) {
+                    reject(new Error('音频转换初始化失败: ' + error.message));
+                }
+            });
+        }
+
+        // 将AudioBuffer转换为WAV格式的ArrayBuffer
+        function audioBufferToWav(buffer) {
+            const length = buffer.length;
+            const numberOfChannels = buffer.numberOfChannels;
+            const sampleRate = buffer.sampleRate;
+            const bitsPerSample = 16;
+            const bytesPerSample = bitsPerSample / 8;
+            const blockAlign = numberOfChannels * bytesPerSample;
+            const byteRate = sampleRate * blockAlign;
+            const dataSize = length * blockAlign;
+            const bufferSize = 44 + dataSize;
+            
+            const arrayBuffer = new ArrayBuffer(bufferSize);
+            const view = new DataView(arrayBuffer);
+            
+            // WAV文件头
+            const writeString = (offset, string) => {
+                for (let i = 0; i < string.length; i++) {
+                    view.setUint8(offset + i, string.charCodeAt(i));
+                }
+            };
+            
+            writeString(0, 'RIFF');                                    // ChunkID
+            view.setUint32(4, bufferSize - 8, true);                  // ChunkSize
+            writeString(8, 'WAVE');                                   // Format
+            writeString(12, 'fmt ');                                  // Subchunk1ID
+            view.setUint32(16, 16, true);                             // Subchunk1Size
+            view.setUint16(20, 1, true);                              // AudioFormat (PCM)
+            view.setUint16(22, numberOfChannels, true);               // NumChannels
+            view.setUint32(24, sampleRate, true);                     // SampleRate
+            view.setUint32(28, byteRate, true);                       // ByteRate
+            view.setUint16(32, blockAlign, true);                     // BlockAlign
+            view.setUint16(34, bitsPerSample, true);                  // BitsPerSample
+            writeString(36, 'data');                                  // Subchunk2ID
+            view.setUint32(40, dataSize, true);                       // Subchunk2Size
+            
+            // 音频数据
+            let offset = 44;
+            for (let i = 0; i < length; i++) {
+                for (let channel = 0; channel < numberOfChannels; channel++) {
+                    const channelData = buffer.getChannelData(channel);
+                    const sample = Math.max(-1, Math.min(1, channelData[i]));
+                    const intSample = sample < 0 ? sample * 0x8000 : sample * 0x7FFF;
+                    view.setInt16(offset, intSample, true);
+                    offset += 2;
+                }
+            }
+            
+            return arrayBuffer;
+        }
+
+        function clearRecording() {
+            recordedBlob = null;
+            recordedChunks = [];
+            document.getElementById('recordingPreview').style.display = 'none';
+            document.getElementById('recordingStatus').textContent = '准备录音...';
+            log('录音已清除', 'info');
         }
 
         // 测试连接
