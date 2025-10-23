@@ -369,27 +369,76 @@ async def redirect_to_index(request: Request, call_next):
     return response
 
 def get_public_ip():
+    """
+    获取公网IP地址
+    优先级：
+    1. 通过 ipify.org API 获取外网IP
+    2. 获取本地网络IP（局域网IP）
+    3. 使用 localhost (127.0.0.1)
+    """
+    # 尝试获取外网IP
     try:
-        # ip = requests.get("https://api.ipify.org", timeout=2).text
-        # return ip
-        return "0.0.0.0"
-    except Exception:
-        return "0.0.0.0"
+        import requests
+        ip = requests.get("https://api.ipify.org", timeout=3).text
+        print(f"✅ 获取到外网IP: {ip}")
+        return ip
+    except Exception as e:
+        print(f"⚠️  无法获取外网IP: {e}")
+
+    # 尝试获取局域网IP
+    try:
+        import socket
+        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        s.connect(("8.8.8.8", 80))  # 不会真正连接，只是用来获取本机IP
+        local_ip = s.getsockname()[0]
+        s.close()
+        print(f"✅ 使用局域网IP: {local_ip}")
+        return local_ip
+    except Exception as e:
+        print(f"⚠️  无法获取局域网IP: {e}")
+
+    # 最后使用 localhost
+    print("⚠️  使用默认地址: 127.0.0.1")
+    return "127.0.0.1"
 
 if __name__ == "__main__":
     #===========================启动参数===========================
     parser = argparse.ArgumentParser(description="TTS Inference API")
-    parser.add_argument("-s","--host", type=str, default=get_public_ip(), help="主机地址(自动获取外网IP)")
+    parser.add_argument("-s","--host", type=str, default="0.0.0.0", help="服务监听地址(默认0.0.0.0监听所有网卡)")
     parser.add_argument("-p","--port", type=int, default=8001, help="端口")
     parser.add_argument("-k","--key", type=str, default="", help="推理密钥")
     parser.add_argument("-c","--config", type=str, default="./GPT_SoVITS/configs/tts_infer.yaml", help="配置文件路径")
     parser.add_argument("-r","--ref_audio", type=str, default="./custom_refs", help="参考音频路径")
+    parser.add_argument("-u","--public-url", type=str, default="", help="返回给客户端的公网地址(如: http://your-domain.com:8001 或 http://1.2.3.4:8001)，不指定则自动获取")
     args = parser.parse_args()
-        
+
     infer_key = args.key
-    host = args.host
+    listen_host = args.host  # uvicorn监听地址
     port = args.port
     ref_audio_path = args.ref_audio
+
+    # 确定返回给客户端的主机地址
+    if args.public_url:
+        # 用户手动指定了公网URL
+        public_url = args.public_url.rstrip('/')  # 移除末尾的斜杠
+        # 从URL中提取host部分（用于生成audio_url）
+        if public_url.startswith('http://') or public_url.startswith('https://'):
+            # 如果是完整URL，提取主机部分（不含端口）
+            from urllib.parse import urlparse
+            parsed = urlparse(public_url)
+            host = parsed.hostname  # 只包含主机名/IP，不含端口
+            # 如果URL中指定了端口，覆盖默认端口
+            if parsed.port:
+                port = parsed.port
+        else:
+            # 如果只是IP地址或域名（不含http://），直接使用
+            host = args.public_url.split(':')[0]  # 移除可能的端口号
+        print(f"📡 使用指定的公网地址: {host}:{port}")
+    else:
+        # 自动获取IP
+        host = get_public_ip()
+        print(f"📡 自动获取的访问地址: {host}:{port}")
+
     pre_infer(args.config, ref_audio_path)
     webbrowser.open(f"http://127.0.0.1:{port}")
-    uvicorn.run(app=APP, host=host, port=port)
+    uvicorn.run(app=APP, host=listen_host, port=port)
