@@ -69,15 +69,15 @@ services:
     stdin_open: true
     shm_size: "16g"
     restart: unless-stopped
-    runtime: nvidia
+    # runtime: nvidia
     command: python gsvi.py -p 8000   # <== 新增此行，容器直接启动此 WebUI
-    # deploy:
-    #   resources:
-    #     reservations:
-    #       devices:
-    #         - driver: nvidia
-    #           count: all  # 或者指定数量，如 1
-    #           capabilities: [gpu]
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all  # 或者指定数量，如 1
+              capabilities: [gpu]
   # GPT-SoVITS-CU128-Lite:
   #   image: xxxxrt666/gpt-sovits:latest-cu128-lite
   #   container_name: GPT-SoVITS-CU128-Lite
