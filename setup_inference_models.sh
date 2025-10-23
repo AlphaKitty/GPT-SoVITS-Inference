@@ -1,8 +1,11 @@
 #!/bin/bash
 # 配置推理模型脚本
-# 将预训练模型链接到推理目录
+# 将预训练模型复制/链接到推理目录
 
-echo "🔧 配置 GPT-SoVITS 推理模型..."
+echo "======================================"
+echo "🔧 GPT-SoVITS 推理模型配置工具"
+echo "======================================"
+echo ""
 
 # 定义源目录和目标目录
 PRETRAINED_DIR="GPT_SoVITS/pretrained_models/gsv-v2final-pretrained"
@@ -13,6 +16,11 @@ SOVITS_WEIGHTS_V4="SoVITS_weights_v4"
 GPT_MODEL="s1bert25hz-5kh-longer-epoch=12-step=369668.ckpt"
 SOVITS_G_MODEL="s2G2333k.pth"
 SOVITS_D_MODEL="s2D2333k.pth"
+
+echo "📋 配置信息:"
+echo "   源目录: $PRETRAINED_DIR"
+echo "   目标目录: $GPT_WEIGHTS_V4 & $SOVITS_WEIGHTS_V4"
+echo ""
 
 # 检查预训练模型是否存在
 if [ ! -f "$PRETRAINED_DIR/$GPT_MODEL" ]; then

@@ -528,6 +528,63 @@ if [ $NEED_DOWNLOAD -eq 1 ]; then
     fi
 else
     echo "✅ 预训练模型已存在，跳过下载"
+
+    # 即使模型已存在，也要检查并配置推理目录
+    echo ""
+    echo "🔍 检查推理模型配置..."
+
+    # 检查推理目录是否需要配置
+    NEED_SETUP=0
+    if [ ! -f "GPT_weights_v4/s1bert25hz-5kh-longer-epoch=12-step=369668.ckpt" ]; then
+        NEED_SETUP=1
+    fi
+    if [ ! -f "SoVITS_weights_v4/s2G2333k.pth" ]; then
+        NEED_SETUP=1
+    fi
+    if [ ! -f "SoVITS_weights_v4/s2D2333k.pth" ]; then
+        NEED_SETUP=1
+    fi
+
+    if [ $NEED_SETUP -eq 1 ]; then
+        echo "🔧 配置推理模型目录..."
+        if [ -f "setup_inference_models.sh" ]; then
+            bash setup_inference_models.sh
+        else
+            echo "⚠️  未找到 setup_inference_models.sh，手动配置推理模型..."
+            mkdir -p GPT_weights_v4 SoVITS_weights_v4
+
+            if [ ! -f "GPT_weights_v4/s1bert25hz-5kh-longer-epoch=12-step=369668.ckpt" ]; then
+                if [ -f "$MODELS_DIR/gsv-v2final-pretrained/s1bert25hz-5kh-longer-epoch=12-step=369668.ckpt" ]; then
+                    cp "$MODELS_DIR/gsv-v2final-pretrained/s1bert25hz-5kh-longer-epoch=12-step=369668.ckpt" GPT_weights_v4/
+                    echo "✅ 已复制 GPT 模型到推理目录"
+                else
+                    echo "❌ 预训练模型文件不存在，无法配置"
+                fi
+            fi
+
+            if [ ! -f "SoVITS_weights_v4/s2G2333k.pth" ]; then
+                if [ -f "$MODELS_DIR/gsv-v2final-pretrained/s2G2333k.pth" ]; then
+                    cp "$MODELS_DIR/gsv-v2final-pretrained/s2G2333k.pth" SoVITS_weights_v4/
+                    echo "✅ 已复制 SoVITS Generator 到推理目录"
+                else
+                    echo "❌ 预训练模型文件不存在，无法配置"
+                fi
+            fi
+
+            if [ ! -f "SoVITS_weights_v4/s2D2333k.pth" ]; then
+                if [ -f "$MODELS_DIR/gsv-v2final-pretrained/s2D2333k.pth" ]; then
+                    cp "$MODELS_DIR/gsv-v2final-pretrained/s2D2333k.pth" SoVITS_weights_v4/
+                    echo "✅ 已复制 SoVITS Discriminator 到推理目录"
+                else
+                    echo "❌ 预训练模型文件不存在，无法配置"
+                fi
+            fi
+
+            echo "✅ 推理模型配置完成"
+        fi
+    else
+        echo "✅ 推理模型已配置，无需重复设置"
+    fi
 fi
 
 # ---------- 9. 拉取镜像 ----------
