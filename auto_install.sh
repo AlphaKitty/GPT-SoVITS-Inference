@@ -178,7 +178,7 @@ if [ $NEED_DOWNLOAD -eq 1 ]; then
     echo ""
 
     read -p "是否现在下载? (y/n): " download_confirm
-    if [ "$download_confirm" == "y" ]; then
+    if [ "$download_confirm" = "y" ]; then
         # 创建目录
         mkdir -p $MODELS_DIR/gsv-v2final-pretrained
         mkdir -p $MODELS_DIR/chinese-roberta-wwm-ext-large
@@ -194,7 +194,7 @@ if [ $NEED_DOWNLOAD -eq 1 ]; then
 
         cd $MODELS_DIR
 
-        if [ "$download_method" == "1" ]; then
+        if [ "$download_method" = "1" ]; then
             # HuggingFace 下载
             echo "📥 从 HuggingFace 下载模型..."
 
@@ -228,7 +228,7 @@ if [ $NEED_DOWNLOAD -eq 1 ]; then
             echo ""
             echo "✅ 所有模型下载完成!"
 
-        elif [ "$download_method" == "2" ]; then
+        elif [ "$download_method" = "2" ]; then
             # ModelScope 下载
             echo "📥 从 ModelScope 下载模型..."
 
@@ -305,7 +305,7 @@ if [ $NEED_DOWNLOAD -eq 1 ]; then
             echo ""
             echo "✅ 所有模型下载完成!"
 
-        elif [ "$download_method" == "3" ]; then
+        elif [ "$download_method" = "3" ]; then
             echo ""
             echo "⚠️  已跳过模型下载"
             echo "   请稍后运行: bash download_pretrained_models.sh"

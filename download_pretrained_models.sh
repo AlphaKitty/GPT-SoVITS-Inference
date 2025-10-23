@@ -72,7 +72,7 @@ echo ""
 echo ""
 read -p "选择下载方式 [1=HuggingFace镜像(国外), 2=ModelScope(国内), 3=手动]: " download_method
 
-if [ "$download_method" == "1" ]; then
+if [ "$download_method" = "1" ]; then
     # 方式1: 使用 git-lfs 从 HuggingFace 下载
 
     # 检查 git-lfs 是否安装
@@ -127,7 +127,7 @@ if [ "$download_method" == "1" ]; then
     echo ""
     echo "✅ 所有模型下载完成!"
 
-elif [ "$download_method" == "2" ]; then
+elif [ "$download_method" = "2" ]; then
     # 方式2: 使用 aria2c 或 wget 从 ModelScope 下载
     echo "📥 正在从 ModelScope 下载模型..."
 
@@ -206,7 +206,7 @@ elif [ "$download_method" == "2" ]; then
     echo ""
     echo "✅ 所有模型下载完成!"
 
-elif [ "$download_method" == "3" ]; then
+elif [ "$download_method" = "3" ]; then
     # 方式3: 显示手动下载指南
     echo ""
     echo "⚠️  请手动下载模型并放到以下目录:"
