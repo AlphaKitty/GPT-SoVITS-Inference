@@ -125,19 +125,14 @@ install_docker() {
     sudo systemctl enable docker
     sudo systemctl start docker
 
-    print_success "Docker 安装完成"
-    print_warning "请注意: 您需要重新登录或执行 'newgrp docker' 命令以使组权限生效"
-
-    # 询问是否立即应用组权限
-    read -p "是否立即应用 docker 组权限? (y/n, 默认 y): " apply_group
-    apply_group=${apply_group:-y}
-
-    if [ "$apply_group" = "y" ] || [ "$apply_group" = "Y" ]; then
-        print_info "应用 docker 组权限..."
-        newgrp docker << EONG
-        print_success "组权限已应用"
-EONG
-    fi
+    print_success "Docker 安装完成: $(docker --version)"
+    print_warning "重要: 需要重新登录以使 docker 组权限生效"
+    echo ""
+    print_info "请选择以下方式之一应用权限:"
+    echo "  1. 重新登录系统（推荐）"
+    echo "  2. 运行: newgrp docker"
+    echo "  3. 继续运行（可能需要 sudo）"
+    echo ""
 }
 
 # 安装 Docker Compose

@@ -67,6 +67,13 @@ install_docker() {
     echo ""
     docker --version
     echo ""
+
+    print_warning "重要: Docker 组权限需要重新登录后才能生效"
+    print_info "请在安装完成后:"
+    echo "  1. 退出当前终端会话"
+    echo "  2. 重新登录"
+    echo "  3. 或运行: newgrp docker"
+    echo ""
 }
 
 # 安装 Docker Compose
