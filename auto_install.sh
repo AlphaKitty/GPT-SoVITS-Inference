@@ -15,14 +15,26 @@ if ! command -v docker &> /dev/null; then
   sudo systemctl enable docker
 fi
 
-# ---------- 2. 安装 aria2c (用于模型下载) ----------
+# ---------- 2. 安装 aria2c 和 git-lfs (用于模型下载) ----------
+echo "🔧 检查模型下载工具..."
+
 if ! command -v aria2c &> /dev/null; then
-  echo "🔧 安装 aria2c..."
+  echo "📦 安装 aria2c..."
   sudo apt-get update
   sudo apt-get install -y aria2
   echo "✅ aria2c 安装完成"
 else
   echo "✅ aria2c 已安装，跳过"
+fi
+
+if ! command -v git-lfs &> /dev/null; then
+  echo "📦 安装 git-lfs..."
+  sudo apt-get update
+  sudo apt-get install -y git-lfs
+  git lfs install
+  echo "✅ git-lfs 安装完成"
+else
+  echo "✅ git-lfs 已安装，跳过"
 fi
 
 # ---------- 3. 安装 NVIDIA Container Toolkit (用于Docker GPU支持) ----------
@@ -184,30 +196,37 @@ if [ $NEED_DOWNLOAD -eq 1 ]; then
 
         if [ "$download_method" == "1" ]; then
             # HuggingFace 下载
-            if command -v git &> /dev/null && command -v git-lfs &> /dev/null; then
-                echo "📥 从 HuggingFace 下载模型..."
+            echo "📥 从 HuggingFace 下载模型..."
 
-                if [ ! -f "gsv-v2final-pretrained/s1bert25hz-5kh-longer-epoch=12-step=369668.ckpt" ]; then
-                    echo "下载 GPT-SoVITS 基础模型..."
-                    git clone https://huggingface.co/lj1995/GPT-SoVITS gsv-v2final-pretrained
-                fi
-
-                if [ ! -d "chinese-roberta-wwm-ext-large/config.json" ]; then
-                    echo "下载中文 BERT 模型..."
-                    git clone https://huggingface.co/hfl/chinese-roberta-wwm-ext-large
-                fi
-
-                if [ ! -d "chinese-hubert-base/config.json" ]; then
-                    echo "下载中文 HuBERT 模型..."
-                    git clone https://huggingface.co/TencentGameMate/chinese-hubert-base
-                fi
-
-                echo "✅ 模型下载完成!"
+            if [ ! -f "gsv-v2final-pretrained/s1bert25hz-5kh-longer-epoch=12-step=369668.ckpt" ]; then
+                echo "[1/3] 下载 GPT-SoVITS 基础模型..."
+                rm -rf gsv-v2final-pretrained
+                git clone https://huggingface.co/lj1995/GPT-SoVITS gsv-v2final-pretrained
+                echo "✅ GPT-SoVITS 基础模型下载完成"
             else
-                echo "❌ 未安装 git-lfs，请先安装: sudo apt-get install git-lfs"
-                echo "   或选择方式2使用 ModelScope 下载"
-                exit 1
+                echo "✅ [1/3] GPT-SoVITS 基础模型已存在，跳过"
             fi
+
+            if [ ! -f "chinese-roberta-wwm-ext-large/config.json" ]; then
+                echo "[2/3] 下载中文 BERT 模型..."
+                rm -rf chinese-roberta-wwm-ext-large
+                git clone https://huggingface.co/hfl/chinese-roberta-wwm-ext-large
+                echo "✅ 中文 BERT 模型下载完成"
+            else
+                echo "✅ [2/3] 中文 BERT 模型已存在，跳过"
+            fi
+
+            if [ ! -f "chinese-hubert-base/config.json" ]; then
+                echo "[3/3] 下载中文 HuBERT 模型..."
+                rm -rf chinese-hubert-base
+                git clone https://huggingface.co/TencentGameMate/chinese-hubert-base
+                echo "✅ 中文 HuBERT 模型下载完成"
+            else
+                echo "✅ [3/3] 中文 HuBERT 模型已存在，跳过"
+            fi
+
+            echo ""
+            echo "✅ 所有模型下载完成!"
 
         elif [ "$download_method" == "2" ]; then
             # ModelScope 下载
@@ -226,47 +245,65 @@ if [ $NEED_DOWNLOAD -eq 1 ]; then
             fi
 
             # 下载 GPT-SoVITS 基础模型
-            echo "📦 [1/5] 下载 GPT 模型 checkpoint..."
+            echo "📦 [1/5] 下载 GPT 模型 checkpoint (~600MB)..."
             cd gsv-v2final-pretrained
             if [ ! -f "s1bert25hz-5kh-longer-epoch=12-step=369668.ckpt" ]; then
                 $DOWNLOAD_CMD -o s1bert25hz-5kh-longer-epoch=12-step=369668.ckpt \
                     "https://www.modelscope.cn/api/v1/models/iic/speech_personal_sambert-hifigan_nsf_tts_zh-cn_pretrain_16k/repo?Revision=master&FilePath=s1bert25hz-5kh-longer-epoch%3D12-step%3D369668.ckpt"
+                echo "✅ GPT 模型下载完成"
+            else
+                echo "✅ GPT 模型已存在，跳过"
             fi
 
-            echo "📦 [2/5] 下载 SoVITS Generator 模型..."
+            echo "📦 [2/5] 下载 SoVITS Generator 模型 (~300MB)..."
             if [ ! -f "s2G2333k.pth" ]; then
                 $DOWNLOAD_CMD -o s2G2333k.pth \
                     "https://www.modelscope.cn/api/v1/models/iic/speech_personal_sambert-hifigan_nsf_tts_zh-cn_pretrain_16k/repo?Revision=master&FilePath=s2G2333k.pth"
+                echo "✅ SoVITS Generator 下载完成"
+            else
+                echo "✅ SoVITS Generator 已存在，跳过"
             fi
 
-            echo "📦 [3/5] 下载 SoVITS Discriminator 模型..."
+            echo "📦 [3/5] 下载 SoVITS Discriminator 模型 (~300MB)..."
             if [ ! -f "s2D2333k.pth" ]; then
                 $DOWNLOAD_CMD -o s2D2333k.pth \
                     "https://www.modelscope.cn/api/v1/models/iic/speech_personal_sambert-hifigan_nsf_tts_zh-cn_pretrain_16k/repo?Revision=master&FilePath=s2D2333k.pth"
+                echo "✅ SoVITS Discriminator 下载完成"
+            else
+                echo "✅ SoVITS Discriminator 已存在，跳过"
             fi
             cd ..
 
             # 下载 BERT 模型
-            echo "📦 [4/5] 下载中文 BERT 模型..."
+            echo "📦 [4/5] 下载中文 BERT 模型 (~1.2GB)..."
             if [ ! -f "chinese-roberta-wwm-ext-large/config.json" ]; then
+                rm -rf chinese-roberta-wwm-ext-large
                 if command -v git &> /dev/null; then
                     git clone https://www.modelscope.cn/tiansz/chinese-roberta-wwm-ext-large.git chinese-roberta-wwm-ext-large
+                    echo "✅ 中文 BERT 模型下载完成"
                 else
                     echo "⚠️  需要 git 来克隆 BERT 模型"
                 fi
+            else
+                echo "✅ 中文 BERT 模型已存在，跳过"
             fi
 
             # 下载 HuBERT 模型
-            echo "📦 [5/5] 下载中文 HuBERT 模型..."
+            echo "📦 [5/5] 下载中文 HuBERT 模型 (~400MB)..."
             if [ ! -f "chinese-hubert-base/config.json" ]; then
+                rm -rf chinese-hubert-base
                 if command -v git &> /dev/null; then
                     git clone https://www.modelscope.cn/TencentGameMate/chinese-hubert-base.git chinese-hubert-base
+                    echo "✅ 中文 HuBERT 模型下载完成"
                 else
                     echo "⚠️  需要 git 来克隆 HuBERT 模型"
                 fi
+            else
+                echo "✅ 中文 HuBERT 模型已存在，跳过"
             fi
 
-            echo "✅ 模型下载完成!"
+            echo ""
+            echo "✅ 所有模型下载完成!"
 
         elif [ "$download_method" == "3" ]; then
             echo ""
