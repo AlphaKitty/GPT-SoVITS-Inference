@@ -1,0 +1,121 @@
+#!/bin/bash
+
+echo "🚀 一键部署 AlphaKitty/GPT-SoVITS-Inference（适配 docker compose / docker-compose）"
+echo "【准备阶段】"
+
+# ---------- 1. 安装docker ----------
+if ! command -v docker &> /dev/null; then
+  echo "🔧 安装 Docker..."
+  sudo apt-get update
+  sudo apt-get install -y ca-certificates curl gnupg lsb-release
+  curl -fsSL https://get.docker.com -o get-docker.sh
+  sh get-docker.sh
+  rm get-docker.sh
+  sudo systemctl start docker
+  sudo systemctl enable docker
+fi
+
+# ---------- 2. 安装 aria2c (用于模型下载) ----------
+if ! command -v aria2c &> /dev/null; then
+  echo "🔧 安装 aria2c..."
+  sudo apt-get update
+  sudo apt-get install -y aria2
+  echo "✅ aria2c 安装完成"
+else
+  echo "✅ aria2c 已安装，跳过"
+fi
+
+# ---------- 3. Docker 镜像加速配置 ----------
+DAEMON_JSON_PATH="/etc/docker/daemon.json"
+MIRROR_JSON='{
+  "registry-mirrors": [
+    "https://registry.docker-cn.com",
+    "https://hub-mirror.c.163.com"
+  ],
+  "max-concurrent-downloads": 10,
+  "max-concurrent-uploads": 5
+}'
+NEED_UPDATE=1
+
+if [ -f $DAEMON_JSON_PATH ]; then
+  EXIST_JSON=$(sudo cat $DAEMON_JSON_PATH)
+  if echo "$EXIST_JSON" | grep -q "registry.docker-cn.com" && echo "$EXIST_JSON" | grep -q "hub-mirror.c.163.com"; then
+    NEED_UPDATE=0
+    echo "✅ 已检测到国内加速配置，无需重复写入。"
+  else
+    echo "⚠️ 覆盖写入 /etc/docker/daemon.json（备份到 daemon.json.bak）"
+    sudo cp $DAEMON_JSON_PATH ${DAEMON_JSON_PATH}.bak
+  fi
+else
+  echo "⚠️ 初始化写入 /etc/docker/daemon.json"
+fi
+if [ $NEED_UPDATE -eq 1 ]; then
+  echo "$MIRROR_JSON" | sudo tee $DAEMON_JSON_PATH > /dev/null
+  echo "🔄 重启 Docker 服务以应用加速配置..."
+  sudo systemctl restart docker
+  sleep 3
+fi
+
+# ---------- 4. 用户组设置（建议重新登录shell生效） ----------
+if groups $USER | grep -vwq "docker"; then
+  echo "🔧 当前用户未添加到docker组，正在添加（需手动重新登录shell再生效）..."
+  sudo usermod -aG docker $USER
+  echo "⚠️ 你需要退出当前终端或重启电脑，重新进来后才能免sudo使用docker"
+fi
+
+# ---------- 5. 克隆/拉取代码 ----------
+WORKDIR="./GPT-SoVITS-Inference"
+if [ ! -d "$WORKDIR" ]; then
+  echo "📦 克隆项目..."
+  git clone https://github.com/AlphaKitty/GPT-SoVITS-Inference.git "$WORKDIR"
+else
+  echo "✅ 发现本地已有项目目录，拉取最新代码"
+  cd "$WORKDIR" && git pull
+fi
+cd "$WORKDIR"
+
+# ---------- 6. 检测并适配 docker compose / docker-compose ----------
+if command -v docker &> /dev/null && docker compose version &> /dev/null; then
+    COMPOSE_RUN="docker compose"
+elif command -v docker-compose &> /dev/null; then
+    COMPOSE_RUN="docker-compose"
+else
+    echo "🔧 尝试安装 Docker Compose 插件版..."
+    sudo apt-get update
+    sudo apt-get install -y docker-compose-plugin
+    if command -v docker &> /dev/null && docker compose version &> /dev/null; then
+        COMPOSE_RUN="docker compose"
+    else
+        echo "🔧 安装 Docker Compose 旧版二进制..."
+        sudo apt-get install -y docker-compose
+        COMPOSE_RUN="docker-compose"
+    fi
+fi
+
+echo "✅ 选用的 compose 命令为: $COMPOSE_RUN"
+
+# ---------- 7. 拉取镜像 ----------
+echo "📦 拉取 Docker 镜像及依赖"
+$COMPOSE_RUN pull
+
+# ---------- 8. 启动工程 ----------
+echo "🚀 启动服务（$COMPOSE_RUN up -d）"
+$COMPOSE_RUN up -d --device CU128
+
+# ---------- 9. 获取公网IP与端口 ----------
+IP=$(curl -s http://ipinfo.io/ip)
+PORT=$(grep -m1 -A2 'ports:' docker-compose.yaml | grep -o '[0-9]\{4,5\}:[0-9]\{4,5\}' | head -n1 | awk -F: '{print $1}')
+if [ -z "$PORT" ]; then
+  PORT=8000
+fi
+
+echo "=============================================="
+echo "🎉 启动成功！"
+echo "【公网访问地址】http://${IP}:${PORT}/"
+echo "【本机访问地址】http://localhost:${PORT}/"
+echo "=============================================="
+
+# ---------- 10. 实时日志监控 ----------
+echo "----- 实时监控 compose 日志 -----"
+$COMPOSE_RUN logs -f
+

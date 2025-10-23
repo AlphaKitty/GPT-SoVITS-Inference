@@ -1,0 +1,1027 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>音色克隆与TTS测试工具</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Microsoft YaHei', 'Segoe UI', Tahoma, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 32px;
+            margin-bottom: 10px;
+        }
+
+        .header p {
+            opacity: 0.9;
+            font-size: 14px;
+        }
+
+        .content {
+            padding: 30px;
+        }
+
+        .section {
+            margin-bottom: 30px;
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 10px;
+        }
+
+        .section-title {
+            font-size: 20px;
+            font-weight: bold;
+            color: #333;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+        }
+
+        .section-title::before {
+            content: '';
+            width: 4px;
+            height: 20px;
+            background: #667eea;
+            margin-right: 10px;
+            border-radius: 2px;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        label {
+            display: block;
+            font-weight: 600;
+            color: #555;
+            margin-bottom: 8px;
+            font-size: 14px;
+        }
+
+        input[type="text"],
+        input[type="file"],
+        select,
+        textarea {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 14px;
+            transition: all 0.3s;
+        }
+
+        input:focus,
+        select:focus,
+        textarea:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        textarea {
+            resize: vertical;
+            min-height: 120px;
+            font-family: inherit;
+        }
+
+        .button-group {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        button {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn-secondary {
+            background: #6c757d;
+            color: white;
+        }
+
+        .btn-secondary:hover {
+            background: #5a6268;
+            transform: translateY(-2px);
+        }
+
+        .btn-success {
+            background: #28a745;
+            color: white;
+        }
+
+        .btn-success:hover {
+            background: #218838;
+            transform: translateY(-2px);
+        }
+
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none !important;
+        }
+
+        .log-container {
+            background: #1e1e1e;
+            color: #d4d4d4;
+            padding: 15px;
+            border-radius: 8px;
+            max-height: 300px;
+            overflow-y: auto;
+            font-family: 'Consolas', 'Monaco', monospace;
+            font-size: 13px;
+            line-height: 1.6;
+        }
+
+        .log-entry {
+            margin-bottom: 5px;
+            padding: 4px 0;
+        }
+
+        .log-info { color: #4fc3f7; }
+        .log-success { color: #81c784; }
+        .log-error { color: #e57373; }
+        .log-warning { color: #ffb74d; }
+
+        .audio-player {
+            margin-top: 15px;
+            padding: 15px;
+            background: white;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+        }
+
+        audio {
+            width: 100%;
+            margin-top: 10px;
+        }
+
+        .model-list {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 10px;
+            max-height: 300px;
+            overflow-y: auto;
+            padding: 10px;
+            background: white;
+            border-radius: 8px;
+        }
+
+        .model-item {
+            padding: 10px;
+            background: #f8f9fa;
+            border: 2px solid #e0e0e0;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .model-item:hover {
+            border-color: #667eea;
+            background: #f0f4ff;
+        }
+
+        .model-item.selected {
+            border-color: #667eea;
+            background: #667eea;
+            color: white;
+        }
+
+        .model-item.selected div {
+            color: white !important;
+        }
+
+        .status-indicator {
+            display: inline-block;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            margin-right: 8px;
+        }
+
+        .status-online { background: #28a745; }
+        .status-offline { background: #dc3545; }
+
+        .loader {
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #667eea;
+            border-radius: 50%;
+            width: 20px;
+            height: 20px;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .grid-2 {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+
+        @media (max-width: 768px) {
+            .grid-2 {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🎙️ 音色克隆与TTS测试工具</h1>
+            <p>基于 GPT-SoVITS API 的语音合成测试平台</p>
+        </div>
+
+        <div class="content">
+            <!-- API配置区 -->
+            <div class="section">
+                <div class="section-title">⚙️ API配置</div>
+                <div class="grid-2">
+                    <div class="form-group">
+                        <label>API基础地址</label>
+                        <input type="text" id="apiBaseUrl" value="http://129.226.201.208:8000" placeholder="http://129.226.201.208:8000">
+                    </div>
+                    <div class="form-group">
+                        <label>App Key (可选)</label>
+                        <input type="text" id="appKey" placeholder="留空使用默认配置">
+                    </div>
+                </div>
+                <div class="button-group">
+                    <button class="btn-primary" onclick="checkConnection()">
+                        🔌 测试连接
+                    </button>
+                    <button class="btn-secondary" onclick="loadModels()">
+                        📋 获取音色列表
+                    </button>
+                </div>
+            </div>
+
+            <!-- 音色选择区 -->
+            <div class="section">
+                <div class="section-title">🎵 选择音色模型</div>
+                <div class="form-group">
+                    <label>模型版本</label>
+                    <select id="modelVersion">
+                        <option value="v4">V4 (情感控制)</option>
+                        <option value="v3">V3 (经典模式)</option>
+                    </select>
+                </div>
+                <div id="modelList" class="model-list">
+                    <div style="text-align: center; color: #999; padding: 20px;">
+                        点击上方"获取音色列表"按钮加载可用模型
+                    </div>
+                </div>
+                <div class="form-group" style="margin-top: 15px;">
+                    <label>选中的模型: <span id="selectedModel" style="color: #667eea; font-weight: bold;">未选择</span></label>
+                </div>
+            </div>
+
+            <!-- TTS测试区 -->
+            <div class="section">
+                <div class="section-title">📝 文本转语音测试</div>
+
+                <div class="form-group">
+                    <label>情感/语气 (仅V4模型支持)</label>
+                    <select id="emotion">
+                        <option value="默认">默认</option>
+                        <option value="开心">开心</option>
+                        <option value="悲伤">悲伤</option>
+                        <option value="愤怒">愤怒</option>
+                        <option value="恐惧">恐惧</option>
+                        <option value="惊讶">惊讶</option>
+                        <option value="中性">中性</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label>待合成文本</label>
+                    <textarea id="textToSynthesize" placeholder="请输入要转换为语音的文本...">今天天气真不错,适合出去散步。人工智能技术正在改变我们的生活方式。</textarea>
+                </div>
+
+                <div class="grid-2">
+                    <div class="form-group">
+                        <label>文本语言</label>
+                        <select id="textLang">
+                            <option value="中文">中文</option>
+                            <option value="英文">英文</option>
+                            <option value="日文">日文</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>语速 (0.5 - 2.0)</label>
+                        <input type="number" id="speedFactor" value="1.0" min="0.5" max="2.0" step="0.1">
+                    </div>
+                </div>
+
+                <div class="button-group">
+                    <button class="btn-primary" onclick="synthesizeSpeech()">
+                        🎤 开始合成
+                    </button>
+                    <button class="btn-success" onclick="synthesizeWithEmotion()">
+                        😊 情感合成 (V4)
+                    </button>
+                </div>
+
+                <div class="audio-player" id="audioPlayerContainer" style="display: none;">
+                    <label>🎧 生成的音频</label>
+                    <audio id="audioPlayer" controls></audio>
+                    <div style="margin-top: 10px;">
+                        <a id="downloadLink" download="synthesized.wav">
+                            <button class="btn-secondary">💾 下载音频</button>
+                        </a>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 快速音色克隆区 (Zero-Shot) -->
+            <div class="section">
+                <div class="section-title">⚡ 快速音色克隆 (Zero-Shot TTS)</div>
+                <div style="background: #fff3cd; padding: 15px; border-radius: 8px; margin-bottom: 15px;">
+                    <strong>💡 使用说明:</strong>
+                    <ul style="margin: 10px 0 0 20px; line-height: 1.8;">
+                        <li>上传 <strong>3-10秒</strong> 高质量参考音频 (越清晰效果越好)</li>
+                        <li>输入参考音频对应的<strong>准确文字</strong></li>
+                        <li>输入你想让AI说的任何文字,即可克隆音色</li>
+                        <li>⚠️ 无需训练,但效果比微调模型略差</li>
+                    </ul>
+                </div>
+
+                <div class="form-group">
+                    <label>📤 步骤1: 上传参考音频 (3-10秒清晰人声)</label>
+                    <input type="file" id="refAudio" accept="audio/*">
+                    <div style="font-size: 12px; color: #666; margin-top: 5px;">
+                        支持格式: WAV, MP3, M4A 等
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label>📝 步骤2: 输入参考音频的文字内容</label>
+                    <textarea id="refText" placeholder="例如: 今天天气真不错,适合出去散步"></textarea>
+                    <div style="font-size: 12px; color: #666; margin-top: 5px;">
+                        请准确输入音频中说的话,标点符号尽量一致
+                    </div>
+                </div>
+
+                <div class="grid-2">
+                    <div class="form-group">
+                        <label>参考音频语言</label>
+                        <select id="refTextLang">
+                            <option value="中文">中文</option>
+                            <option value="英文">英文</option>
+                            <option value="日文">日文</option>
+                            <option value="中英混合">中英混合</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>目标合成语言</label>
+                        <select id="cloneTextLang">
+                            <option value="中文">中文</option>
+                            <option value="英文">英文</option>
+                            <option value="日文">日文</option>
+                            <option value="中英混合">中英混合</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label>🎯 步骤3: 输入要克隆音色合成的文字</label>
+                    <textarea id="cloneTargetText" placeholder="输入任何你想让AI用克隆的音色说的话...">人工智能技术正在改变我们的生活方式,语音合成技术让机器也能拥有人类的声音。</textarea>
+                </div>
+
+                <div class="button-group">
+                    <button class="btn-primary" onclick="quickVoiceClone()">
+                        🎤 开始克隆音色
+                    </button>
+                    <button class="btn-secondary" onclick="clearCloneInputs()">
+                        🔄 清空输入
+                    </button>
+                </div>
+            </div>
+
+            <!-- 参考音频上传区 (经典模式 - 需要基础模型) -->
+            <div class="section" id="classicModeSection" style="display: none;">
+                <div class="section-title">🎙️ 参考音频 (经典克隆模式)</div>
+                <div class="form-group">
+                    <label>上传参考音频</label>
+                    <input type="file" id="refAudioClassic" accept="audio/*">
+                </div>
+                <div class="form-group">
+                    <label>参考文本 (音频对应的文字)</label>
+                    <textarea id="refTextClassic" placeholder="请输入参考音频对应的文本..."></textarea>
+                </div>
+                <div class="form-group">
+                    <label>参考文本语言</label>
+                    <select id="refTextLangClassic">
+                        <option value="中文">中文</option>
+                        <option value="英文">英文</option>
+                        <option value="日文">日文</option>
+                    </select>
+                </div>
+                <button class="btn-primary" onclick="synthesizeClassic()">
+                    🎵 经典模式合成
+                </button>
+            </div>
+
+            <!-- 日志区 -->
+            <div class="section">
+                <div class="section-title">📊 运行日志</div>
+                <div class="log-container" id="logContainer">
+                    <div class="log-entry log-info">🚀 系统已就绪,等待操作...</div>
+                </div>
+                <button class="btn-secondary" onclick="clearLog()" style="margin-top: 10px;">
+                    🗑️ 清空日志
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 全局变量
+        let selectedModelName = '';
+        let apiBase = '';
+
+        // 初始化
+        window.onload = function() {
+            apiBase = document.getElementById('apiBaseUrl').value;
+            log('系统初始化完成', 'success');
+
+            // 监听模型版本变化
+            document.getElementById('modelVersion').addEventListener('change', function() {
+                const version = this.value;
+                document.getElementById('classicModeSection').style.display = version === 'v3' ? 'block' : 'none';
+            });
+        };
+
+        // 日志函数
+        function log(message, type = 'info') {
+            const logContainer = document.getElementById('logContainer');
+            const timestamp = new Date().toLocaleTimeString();
+            const logEntry = document.createElement('div');
+            logEntry.className = `log-entry log-${type}`;
+
+            const icon = {
+                'info': 'ℹ️',
+                'success': '✅',
+                'error': '❌',
+                'warning': '⚠️'
+            }[type] || 'ℹ️';
+
+            logEntry.textContent = `[${timestamp}] ${icon} ${message}`;
+            logContainer.appendChild(logEntry);
+            logContainer.scrollTop = logContainer.scrollHeight;
+        }
+
+        function clearLog() {
+            document.getElementById('logContainer').innerHTML = '';
+            log('日志已清空', 'info');
+        }
+
+        // 测试连接
+        async function checkConnection() {
+            apiBase = document.getElementById('apiBaseUrl').value;
+            log('正在测试连接...', 'info');
+
+            try {
+                const response = await fetch(`${apiBase}/version`);
+                if (response.ok) {
+                    const data = await response.json();
+                    log(`连接成功! 服务器版本: ${JSON.stringify(data)}`, 'success');
+                } else {
+                    log(`连接失败: HTTP ${response.status}`, 'error');
+                }
+            } catch (error) {
+                log(`连接错误: ${error.message}`, 'error');
+            }
+        }
+
+        // 加载模型列表
+        async function loadModels() {
+            apiBase = document.getElementById('apiBaseUrl').value;
+            const version = document.getElementById('modelVersion').value;
+            log(`正在获取 ${version} 模型列表...`, 'info');
+
+            try {
+                // 使用GET方法,版本号在路径参数中
+                const response = await fetch(`${apiBase}/models/${version}`, {
+                    method: 'GET'
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}`);
+                }
+
+                const data = await response.json();
+
+                // 解析返回的数据结构
+                // 预期格式: { msg: "获取成功", models: { "模型名": { "语言": ["情感1", "情感2"] } } }
+                let modelNames = [];
+
+                if (data.models && typeof data.models === 'object') {
+                    modelNames = Object.keys(data.models);
+                    log(`成功获取模型列表: ${data.msg || '成功'}, 共 ${modelNames.length} 个模型`, 'success');
+
+                    // 显示模型详细信息
+                    Object.entries(data.models).forEach(([name, info]) => {
+                        const languages = Object.keys(info);
+                        log(`  - ${name}: ${languages.join(', ')}`, 'info');
+                    });
+                } else if (Array.isArray(data)) {
+                    // 兼容数组格式
+                    modelNames = data;
+                    log(`成功获取模型列表,共 ${modelNames.length} 个模型`, 'success');
+                } else {
+                    log(`警告: 无法解析模型数据格式`, 'warning');
+                    log(`返回数据: ${JSON.stringify(data)}`, 'info');
+                }
+
+                // 显示模型列表
+                displayModels(modelNames, data.models);
+            } catch (error) {
+                log(`获取模型列表失败: ${error.message}`, 'error');
+            }
+        }
+
+        // 显示模型列表
+        function displayModels(modelNames, modelsInfo) {
+            const modelList = document.getElementById('modelList');
+            modelList.innerHTML = '';
+
+            if (!modelNames || modelNames.length === 0) {
+                modelList.innerHTML = '<div style="text-align: center; color: #999; padding: 20px;">暂无可用模型</div>';
+                return;
+            }
+
+            modelNames.forEach(modelName => {
+                const modelItem = document.createElement('div');
+                modelItem.className = 'model-item';
+
+                // 如果有详细信息,显示语言信息
+                if (modelsInfo && modelsInfo[modelName]) {
+                    const languages = Object.keys(modelsInfo[modelName]);
+                    const emotions = Object.values(modelsInfo[modelName]).flat();
+
+                    modelItem.innerHTML = `
+                        <div style="font-weight: bold; margin-bottom: 4px;">${modelName}</div>
+                        <div style="font-size: 11px; color: #666; line-height: 1.4;">
+                            ${languages.join(', ')}<br>
+                            ${emotions.length > 1 ? emotions.join(', ') : emotions[0]}
+                        </div>
+                    `;
+                } else {
+                    modelItem.textContent = modelName;
+                }
+
+                modelItem.onclick = () => selectModel(modelName);
+                modelList.appendChild(modelItem);
+            });
+        }
+
+        // 选择模型
+        function selectModel(modelName) {
+            selectedModelName = modelName;
+            document.getElementById('selectedModel').textContent = modelName;
+
+            // 更新选中状态
+            document.querySelectorAll('.model-item').forEach(item => {
+                item.classList.remove('selected');
+                // 检查模型名称 (可能在 textContent 中或者在 innerHTML 的第一个 div 中)
+                const itemModelName = item.querySelector('div')
+                    ? item.querySelector('div').textContent
+                    : item.textContent;
+
+                if (itemModelName === modelName) {
+                    item.classList.add('selected');
+                }
+            });
+
+            log(`已选择模型: ${modelName}`, 'success');
+        }
+
+        // 情感合成 (V4模式)
+        async function synthesizeWithEmotion() {
+            if (!selectedModelName) {
+                log('请先选择一个模型', 'warning');
+                return;
+            }
+
+            apiBase = document.getElementById('apiBaseUrl').value;
+            const appKey = document.getElementById('appKey').value;
+            const emotion = document.getElementById('emotion').value;
+            const text = document.getElementById('textToSynthesize').value;
+            const textLang = document.getElementById('textLang').value;
+            const speedFactor = parseFloat(document.getElementById('speedFactor').value);
+
+            if (!text.trim()) {
+                log('请输入要合成的文本', 'warning');
+                return;
+            }
+
+            log('开始情感合成...', 'info');
+            log(`模型: ${selectedModelName}, 情感: ${emotion || '默认'}, 语速: ${speedFactor}x`, 'info');
+
+            // 构建完整的请求参数,包含所有必需和默认值
+            const requestBody = {
+                app_key: appKey || "",
+                dl_url: "",
+                version: "v4",
+                model_name: selectedModelName,
+                prompt_text_lang: textLang, // 使用中文语言标识
+                emotion: emotion || "默认", // 使用中文情感标识
+                text: text,
+                text_lang: textLang, // 使用中文语言标识
+                top_k: 10,
+                top_p: 1.0,
+                temperature: 1.0,
+                text_split_method: "按标点符号切",
+                batch_size: 1,
+                batch_threshold: 0.75,
+                split_bucket: true,
+                speed_facter: speedFactor,
+                fragment_interval: 0.3,
+                media_type: "wav",
+                parallel_infer: true,
+                repetition_penalty: 1.35,
+                seed: -1,
+                sample_steps: 32,
+                if_sr: false
+            };
+
+            log(`请求参数: ${JSON.stringify(requestBody, null, 2)}`, 'info');
+
+            try {
+                const response = await fetch(`${apiBase}/infer_single`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(requestBody)
+                });
+
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    log(`HTTP错误: ${response.status} - ${errorText}`, 'error');
+                    throw new Error(`HTTP ${response.status}`);
+                }
+
+                const data = await response.json();
+
+                // 检查返回的消息
+                if (data.msg) {
+                    log(`服务器响应: ${data.msg}`, data.audio_url ? 'success' : 'warning');
+                }
+
+                if (!data.audio_url) {
+                    log('错误: 未返回音频URL', 'error');
+                    return;
+                }
+
+                log('合成成功!', 'success');
+
+                // 处理返回的音频
+                handleAudioResponse(data);
+            } catch (error) {
+                log(`合成失败: ${error.message}`, 'error');
+            }
+        }
+
+        // 标准合成
+        async function synthesizeSpeech() {
+            // 使用情感合成接口,但不指定情感
+            await synthesizeWithEmotion();
+        }
+
+        // 经典模式合成
+        async function synthesizeClassic() {
+            if (!selectedModelName) {
+                log('请先选择一个模型 (包括GPT和SoVITS模型)', 'warning');
+                return;
+            }
+
+            const refAudioFile = document.getElementById('refAudio').files[0];
+            if (!refAudioFile) {
+                log('请上传参考音频', 'warning');
+                return;
+            }
+
+            log('经典模式合成功能需要先上传音频文件到服务器', 'info');
+            log('1. 上传参考音频...', 'info');
+
+            // 上传音频文件
+            const formData = new FormData();
+            formData.append('file', refAudioFile);
+
+            try {
+                apiBase = document.getElementById('apiBaseUrl').value;
+                const uploadResponse = await fetch(`${apiBase}/upload`, {
+                    method: 'POST',
+                    body: formData
+                });
+
+                if (!uploadResponse.ok) {
+                    throw new Error(`上传失败: HTTP ${uploadResponse.status}`);
+                }
+
+                const uploadData = await uploadResponse.json();
+                log(`音频上传成功: ${uploadData.file_path || uploadData.filename}`, 'success');
+
+                // 使用上传的音频路径进行合成
+                const refAudioPath = uploadData.file_path || uploadData.filename;
+                const appKey = document.getElementById('appKey').value;
+                const refText = document.getElementById('refText').value;
+                const refTextLang = document.getElementById('refTextLang').value;
+                const text = document.getElementById('textToSynthesize').value;
+                const textLang = document.getElementById('textLang').value;
+                const speedFactor = parseFloat(document.getElementById('speedFactor').value);
+
+                log('2. 开始语音合成...', 'info');
+
+                // 构建完整的请求参数,包含所有必需和默认值
+                const requestBody = {
+                    app_key: appKey || "",
+                    dl_url: "",
+                    version: "v4",
+                    gpt_model_name: selectedModelName,
+                    sovits_model_name: selectedModelName,
+                    ref_audio_path: refAudioPath,
+                    prompt_text: refText,
+                    prompt_text_lang: refTextLang,
+                    text: text,
+                    text_lang: textLang,
+                    top_k: 10,
+                    top_p: 1.0,
+                    temperature: 1.0,
+                    text_split_method: "按标点符号切",
+                    batch_size: 1,
+                    batch_threshold: 0.75,
+                    split_bucket: true,
+                    speed_facter: speedFactor,
+                    fragment_interval: 0.3,
+                    media_type: "wav",
+                    parallel_infer: true,
+                    repetition_penalty: 1.35,
+                    seed: -1,
+                    sample_steps: 16,
+                    if_sr: false
+                };
+
+                const response = await fetch(`${apiBase}/infer_classic`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(requestBody)
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}`);
+                }
+
+                const data = await response.json();
+                log('经典模式合成成功!', 'success');
+                handleAudioResponse(data);
+
+            } catch (error) {
+                log(`经典模式合成失败: ${error.message}`, 'error');
+            }
+        }
+
+        // 快速音色克隆
+        async function quickVoiceClone() {
+            const refAudioFile = document.getElementById('refAudio').files[0];
+            const refText = document.getElementById('refText').value;
+            const refTextLang = document.getElementById('refTextLang').value;
+            const targetText = document.getElementById('cloneTargetText').value;
+            const targetLang = document.getElementById('cloneTextLang').value;
+
+            // 验证输入
+            if (!refAudioFile) {
+                log('请先上传参考音频', 'warning');
+                alert('请先上传参考音频!');
+                return;
+            }
+
+            if (!refText.trim()) {
+                log('请输入参考音频的文字内容', 'warning');
+                alert('请输入参考音频对应的文字!');
+                return;
+            }
+
+            if (!targetText.trim()) {
+                log('请输入要合成的目标文字', 'warning');
+                alert('请输入要合成的文字!');
+                return;
+            }
+
+            log('🚀 开始快速音色克隆流程...', 'info');
+
+            try {
+                // 步骤1: 上传参考音频
+                log('📤 步骤1: 上传参考音频...', 'info');
+                const formData = new FormData();
+                formData.append('file', refAudioFile);
+
+                apiBase = document.getElementById('apiBaseUrl').value;
+                const uploadResponse = await fetch(`${apiBase}/upload`, {
+                    method: 'POST',
+                    body: formData
+                });
+
+                if (!uploadResponse.ok) {
+                    throw new Error(`上传失败: HTTP ${uploadResponse.status}`);
+                }
+
+                const uploadData = await uploadResponse.json();
+                const refAudioPath = uploadData.file_path;
+                log(`✅ 音频上传成功: ${refAudioPath}`, 'success');
+
+                // 步骤2: 获取基础模型列表 (使用经典模式需要基础模型)
+                log('📋 步骤2: 获取可用的基础模型...', 'info');
+                const modelsResponse = await fetch(`${apiBase}/classic_model_list/v4`, {
+                    method: 'GET'
+                });
+
+                if (!modelsResponse.ok) {
+                    throw new Error(`获取模型列表失败: HTTP ${modelsResponse.status}`);
+                }
+
+                const modelsData = await modelsResponse.json();
+                log(`模型列表: GPT=${modelsData.gpt.length}个, SoVITS=${modelsData.sovits.length}个`, 'info');
+
+                // 选择第一个可用的模型 (通常是基础模型)
+                let gptModel = modelsData.gpt && modelsData.gpt.length > 0 ? modelsData.gpt[0] : '';
+                let sovitsModel = modelsData.sovits && modelsData.sovits.length > 0 ? modelsData.sovits[0] : '';
+
+                if (!gptModel || !sovitsModel) {
+                    log('⚠️ 未找到基础模型,请先下载或训练模型', 'error');
+                    alert('错误: 系统中没有可用的基础模型!\n\n请先:\n1. 下载官方基础模型\n2. 或使用webui.py训练自己的模型\n3. 将模型文件放到 GPT_weights_v4/ 和 SoVITS_weights_v4/ 目录');
+                    return;
+                }
+
+                log(`使用模型: GPT=${gptModel}, SoVITS=${sovitsModel}`, 'info');
+
+                // 步骤3: 调用经典模式进行音色克隆
+                log('🎤 步骤3: 开始克隆音色并合成语音...', 'info');
+                const appKey = document.getElementById('appKey').value;
+                const speedFactor = parseFloat(document.getElementById('speedFactor').value);
+
+                const requestBody = {
+                    app_key: appKey || "",
+                    dl_url: "",
+                    version: "v4",
+                    gpt_model_name: gptModel,
+                    sovits_model_name: sovitsModel,
+                    ref_audio_path: refAudioPath,
+                    prompt_text: refText,
+                    prompt_text_lang: refTextLang,
+                    text: targetText,
+                    text_lang: targetLang,
+                    top_k: 10,
+                    top_p: 1.0,
+                    temperature: 1.0,
+                    text_split_method: "按标点符号切",
+                    batch_size: 1,
+                    batch_threshold: 0.75,
+                    split_bucket: true,
+                    speed_facter: speedFactor,
+                    fragment_interval: 0.3,
+                    media_type: "wav",
+                    parallel_infer: true,
+                    repetition_penalty: 1.35,
+                    seed: -1,
+                    sample_steps: 16,
+                    if_sr: false
+                };
+
+                log(`请求参数: ${JSON.stringify(requestBody, null, 2)}`, 'info');
+
+                const response = await fetch(`${apiBase}/infer_classic`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(requestBody)
+                });
+
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    log(`HTTP错误: ${response.status} - ${errorText}`, 'error');
+                    throw new Error(`HTTP ${response.status}`);
+                }
+
+                const data = await response.json();
+                log(`服务器响应: ${data.msg}`, data.audio_url ? 'success' : 'warning');
+
+                if (!data.audio_url) {
+                    log('错误: 未返回音频URL', 'error');
+                    alert('音色克隆失败: ' + data.msg);
+                    return;
+                }
+
+                log('🎉 音色克隆成功!', 'success');
+
+                // 处理返回的音频
+                handleAudioResponse(data);
+
+            } catch (error) {
+                log(`❌ 音色克隆失败: ${error.message}`, 'error');
+                alert('音色克隆失败: ' + error.message);
+            }
+        }
+
+        // 清空克隆输入
+        function clearCloneInputs() {
+            document.getElementById('refAudio').value = '';
+            document.getElementById('refText').value = '';
+            document.getElementById('cloneTargetText').value = '';
+            log('已清空输入', 'info');
+        }
+
+        // 处理音频响应
+        function handleAudioResponse(data) {
+            log(`API返回数据: ${JSON.stringify(data)}`, 'info');
+
+            // 根据API返回的数据结构处理音频
+            let audioUrl = '';
+
+            // 优先使用 audio_url (GPT-SoVITS API 标准返回字段)
+            if (data.audio_url) {
+                audioUrl = data.audio_url;
+
+                // 如果是相对路径,需要补全为完整URL
+                if (!audioUrl.startsWith('http://') && !audioUrl.startsWith('https://')) {
+                    // 检查是否以 / 开头
+                    if (!audioUrl.startsWith('/')) {
+                        audioUrl = '/' + audioUrl;
+                    }
+                    audioUrl = `${apiBase}${audioUrl}`;
+                }
+            } else if (data.result_path) {
+                // 如果返回的是相对路径,构建完整URL
+                audioUrl = `${apiBase}/outputs/${data.result_path}`;
+            } else if (data.file_path) {
+                audioUrl = data.file_path;
+            }
+
+            if (audioUrl) {
+                log(`音频URL: ${audioUrl}`, 'info');
+
+                // 显示音频播放器
+                const audioPlayer = document.getElementById('audioPlayer');
+                const audioContainer = document.getElementById('audioPlayerContainer');
+                const downloadLink = document.getElementById('downloadLink');
+
+                audioPlayer.src = audioUrl;
+                downloadLink.href = audioUrl;
+                audioContainer.style.display = 'block';
+
+                log('音频已加载到播放器,可以播放了!', 'success');
+            } else {
+                log('警告: 无法解析音频URL', 'warning');
+            }
+        }
+    </script>
+</body>
+</html>
