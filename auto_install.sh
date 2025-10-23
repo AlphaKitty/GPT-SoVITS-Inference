@@ -186,11 +186,12 @@ if [ $NEED_DOWNLOAD -eq 1 ]; then
 
         echo ""
         echo "选择下载方式:"
-        echo "  1) HuggingFace 镜像 (国外网络快)"
-        echo "  2) ModelScope 镜像 (国内网络快) ⭐推荐"
-        echo "  3) 跳过，稍后手动下载"
+        echo "  1) HuggingFace 官方源 (需科学上网，完整仓库)"
+        echo "  2) HuggingFace 镜像 hf-mirror.com (国内可用，直接下载) ⭐推荐"
+        echo "  3) ModelScope 镜像 (国内网络快，但模型版本可能不匹配) ⚠️"
+        echo "  4) 跳过，稍后手动下载"
         echo ""
-        read -p "请选择 [1-3]: " download_method
+        read -p "请选择 [1-4]: " download_method
 
         cd $MODELS_DIR
 
@@ -229,8 +230,97 @@ if [ $NEED_DOWNLOAD -eq 1 ]; then
             echo "✅ 所有模型下载完成!"
 
         elif [ "$download_method" = "2" ]; then
-            # ModelScope 下载
+            # HuggingFace 镜像下载（新增，推荐）
+            echo "📥 从 HuggingFace 镜像下载模型..."
+
+            DOWNLOAD_CMD=""
+            if command -v aria2c &> /dev/null; then
+                DOWNLOAD_CMD="aria2c -x 16 -s 16 -k 1M -o"
+                echo "✅ 使用 aria2c 多线程下载"
+            elif command -v wget &> /dev/null; then
+                DOWNLOAD_CMD="wget -c -O"
+                echo "✅ 使用 wget 下载"
+            elif command -v curl &> /dev/null; then
+                DOWNLOAD_CMD="curl -L -o"
+                echo "✅ 使用 curl 下载"
+            else
+                echo "❌ 未检测到 aria2c、wget 或 curl"
+                exit 1
+            fi
+
+            BASE_URL="https://hf-mirror.com/lj1995/GPT-SoVITS/resolve/main/gsv-v2final-pretrained"
+
+            # 下载 GPT-SoVITS 基础模型
+            echo "📦 [1/5] 下载 GPT 模型 checkpoint (~600MB)..."
+            cd gsv-v2final-pretrained
+            if [ ! -f "s1bert25hz-5kh-longer-epoch=12-step=369668.ckpt" ]; then
+                $DOWNLOAD_CMD s1bert25hz-5kh-longer-epoch=12-step=369668.ckpt \
+                    "$BASE_URL/s1bert25hz-5kh-longer-epoch%3D12-step%3D369668.ckpt"
+                echo "✅ GPT 模型下载完成"
+            else
+                echo "✅ GPT 模型已存在，跳过"
+            fi
+
+            echo "📦 [2/5] 下载 SoVITS Generator 模型 (~300MB)..."
+            if [ ! -f "s2G2333k.pth" ]; then
+                $DOWNLOAD_CMD s2G2333k.pth \
+                    "$BASE_URL/s2G2333k.pth"
+                echo "✅ SoVITS Generator 下载完成"
+            else
+                echo "✅ SoVITS Generator 已存在，跳过"
+            fi
+
+            echo "📦 [3/5] 下载 SoVITS Discriminator 模型 (~300MB)..."
+            if [ ! -f "s2D2333k.pth" ]; then
+                $DOWNLOAD_CMD s2D2333k.pth \
+                    "$BASE_URL/s2D2333k.pth"
+                echo "✅ SoVITS Discriminator 下载完成"
+            else
+                echo "✅ SoVITS Discriminator 已存在，跳过"
+            fi
+            cd ..
+
+            # 下载 BERT 模型（使用 HuggingFace 镜像）
+            echo "📦 [4/5] 下载中文 BERT 模型 (~1.2GB)..."
+            if [ ! -f "chinese-roberta-wwm-ext-large/config.json" ]; then
+                rm -rf chinese-roberta-wwm-ext-large
+                if command -v git &> /dev/null; then
+                    export HF_ENDPOINT=https://hf-mirror.com
+                    git clone https://hf-mirror.com/hfl/chinese-roberta-wwm-ext-large
+                    unset HF_ENDPOINT
+                    echo "✅ 中文 BERT 模型下载完成"
+                else
+                    echo "⚠️  需要 git 来克隆 BERT 模型"
+                fi
+            else
+                echo "✅ 中文 BERT 模型已存在，跳过"
+            fi
+
+            # 下载 HuBERT 模型（使用 HuggingFace 镜像）
+            echo "📦 [5/5] 下载中文 HuBERT 模型 (~400MB)..."
+            if [ ! -f "chinese-hubert-base/config.json" ]; then
+                rm -rf chinese-hubert-base
+                if command -v git &> /dev/null; then
+                    export HF_ENDPOINT=https://hf-mirror.com
+                    git clone https://hf-mirror.com/TencentGameMate/chinese-hubert-base
+                    unset HF_ENDPOINT
+                    echo "✅ 中文 HuBERT 模型下载完成"
+                else
+                    echo "⚠️  需要 git 来克隆 HuBERT 模型"
+                fi
+            else
+                echo "✅ 中文 HuBERT 模型已存在，跳过"
+            fi
+
+            echo ""
+            echo "✅ 所有模型下载完成!"
+
+        elif [ "$download_method" = "3" ]; then
+            # ModelScope 下载（改为选项3，添加警告）
             echo "📥 从 ModelScope 下载模型..."
+            echo "⚠️  警告：ModelScope 源的模型版本可能与程序要求不匹配！"
+            echo "   如遇到文件名不匹配错误，请选择选项 2 重新下载"
+            echo ""
 
             DOWNLOAD_CMD=""
             if command -v aria2c &> /dev/null; then
@@ -305,10 +395,21 @@ if [ $NEED_DOWNLOAD -eq 1 ]; then
             echo ""
             echo "✅ 所有模型下载完成!"
 
-        elif [ "$download_method" = "3" ]; then
+        elif [ "$download_method" = "4" ]; then
             echo ""
             echo "⚠️  已跳过模型下载"
-            echo "   请稍后运行: bash download_pretrained_models.sh"
+            echo ""
+            echo "📋 手动下载指南："
+            echo "   访问 https://huggingface.co/lj1995/GPT-SoVITS/tree/main/gsv-v2final-pretrained"
+            echo ""
+            echo "   下载以下文件到 GPT_SoVITS/pretrained_models/gsv-v2final-pretrained/ :"
+            echo "   - s1bert25hz-5kh-longer-epoch=12-step=369668.ckpt  (约 600MB)"
+            echo "   - s2G2333k.pth  (约 300MB)"
+            echo "   - s2D2333k.pth  (约 300MB)"
+            echo ""
+            echo "   BERT 和 HuBERT 模型下载到 GPT_SoVITS/pretrained_models/ :"
+            echo "   - chinese-roberta-wwm-ext-large  (约 1.2GB)"
+            echo "   - chinese-hubert-base  (约 400MB)"
             echo ""
         else
             echo "❌ 无效选择"
@@ -317,9 +418,46 @@ if [ $NEED_DOWNLOAD -eq 1 ]; then
 
         # 返回项目根目录
         cd ../..
+
+        # 验证关键模型文件
+        echo ""
+        echo "🔍 验证模型文件..."
+        MISSING_FILES=0
+
+        if [ ! -f "$MODELS_DIR/gsv-v2final-pretrained/s1bert25hz-5kh-longer-epoch=12-step=369668.ckpt" ]; then
+            echo "❌ 缺少: s1bert25hz-5kh-longer-epoch=12-step=369668.ckpt"
+            MISSING_FILES=1
+        else
+            echo "✅ s1bert25hz-5kh-longer-epoch=12-step=369668.ckpt"
+        fi
+
+        if [ ! -f "$MODELS_DIR/gsv-v2final-pretrained/s2G2333k.pth" ]; then
+            echo "❌ 缺少: s2G2333k.pth"
+            MISSING_FILES=1
+        else
+            echo "✅ s2G2333k.pth"
+        fi
+
+        if [ ! -f "$MODELS_DIR/gsv-v2final-pretrained/s2D2333k.pth" ]; then
+            echo "❌ 缺少: s2D2333k.pth"
+            MISSING_FILES=1
+        else
+            echo "✅ s2D2333k.pth"
+        fi
+
+        if [ $MISSING_FILES -eq 1 ]; then
+            echo ""
+            echo "⚠️  部分模型文件缺失或下载失败！"
+            echo "   建议重新运行脚本并选择选项 2 (HuggingFace 镜像)"
+            echo "   或手动下载缺失的文件"
+        else
+            echo ""
+            echo "✅ 所有关键模型文件验证通过！"
+        fi
+
     else
         echo "⚠️  已跳过模型下载，Docker 启动时可能会报错"
-        echo "   稍后可运行: bash download_pretrained_models.sh"
+        echo "   稍后可重新运行此脚本下载模型"
     fi
 else
     echo "✅ 预训练模型已存在，跳过下载"
