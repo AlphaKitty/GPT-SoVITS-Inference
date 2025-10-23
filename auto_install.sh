@@ -25,7 +25,52 @@ else
   echo "✅ aria2c 已安装，跳过"
 fi
 
-# ---------- 3. Docker 镜像加速配置 ----------
+# ---------- 3. 安装 NVIDIA Container Toolkit (用于Docker GPU支持) ----------
+if command -v nvidia-smi &> /dev/null; then
+  echo "🎮 检测到 NVIDIA GPU，正在安装 nvidia-container-toolkit..."
+
+  # 检查是否已安装
+  if ! command -v nvidia-container-toolkit &> /dev/null && ! dpkg -l | grep -q nvidia-container-toolkit; then
+    echo "📦 添加 NVIDIA Docker 源..."
+
+    # 添加 NVIDIA 容器工具包的 GPG 密钥
+    distribution=$(. /etc/os-release;echo $ID$VERSION_ID)
+    curl -fsSL https://nvidia.github.io/libnvidia-container/gpgkey | sudo gpg --dearmor -o /usr/share/keyrings/nvidia-container-toolkit-keyring.gpg
+
+    # 添加 NVIDIA 容器工具包的仓库
+    curl -s -L https://nvidia.github.io/libnvidia-container/$distribution/libnvidia-container.list | \
+      sed 's#deb https://#deb [signed-by=/usr/share/keyrings/nvidia-container-toolkit-keyring.gpg] https://#g' | \
+      sudo tee /etc/apt/sources.list.d/nvidia-container-toolkit.list
+
+    # 安装 nvidia-container-toolkit
+    sudo apt-get update
+    sudo apt-get install -y nvidia-container-toolkit
+
+    # 配置 Docker 使用 NVIDIA runtime
+    sudo nvidia-ctk runtime configure --runtime=docker
+
+    echo "🔄 重启 Docker 服务以应用 GPU 配置..."
+    sudo systemctl restart docker
+    sleep 3
+
+    echo "✅ nvidia-container-toolkit 安装完成"
+
+    # 测试 GPU 是否可用
+    echo "🧪 测试 Docker GPU 支持..."
+    if docker run --rm --gpus all nvidia/cuda:11.8.0-base-ubuntu22.04 nvidia-smi &> /dev/null; then
+      echo "✅ Docker GPU 支持已启用，可以使用 GPU 加速！"
+    else
+      echo "⚠️  Docker GPU 测试失败，请检查配置"
+    fi
+  else
+    echo "✅ nvidia-container-toolkit 已安装，跳过"
+  fi
+else
+  echo "ℹ️  未检测到 NVIDIA GPU，跳过 nvidia-container-toolkit 安装"
+  echo "   (如果是 CPU 版本，可以忽略此消息)"
+fi
+
+# ---------- 4. Docker 镜像加速配置 ----------
 DAEMON_JSON_PATH="/etc/docker/daemon.json"
 MIRROR_JSON='{
   "registry-mirrors": [
@@ -56,14 +101,14 @@ if [ $NEED_UPDATE -eq 1 ]; then
   sleep 3
 fi
 
-# ---------- 4. 用户组设置（建议重新登录shell生效） ----------
+# ---------- 5. 用户组设置（建议重新登录shell生效） ----------
 if groups $USER | grep -vwq "docker"; then
   echo "🔧 当前用户未添加到docker组，正在添加（需手动重新登录shell再生效）..."
   sudo usermod -aG docker $USER
   echo "⚠️ 你需要退出当前终端或重启电脑，重新进来后才能免sudo使用docker"
 fi
 
-# ---------- 5. 克隆/拉取代码 ----------
+# ---------- 6. 克隆/拉取代码 ----------
 WORKDIR="./GPT-SoVITS-Inference"
 if [ ! -d "$WORKDIR" ]; then
   echo "📦 克隆项目..."
@@ -74,7 +119,7 @@ else
 fi
 cd "$WORKDIR"
 
-# ---------- 6. 检测并适配 docker compose / docker-compose ----------
+# ---------- 7. 检测并适配 docker compose / docker-compose ----------
 if command -v docker &> /dev/null && docker compose version &> /dev/null; then
     COMPOSE_RUN="docker compose"
 elif command -v docker-compose &> /dev/null; then
@@ -94,15 +139,15 @@ fi
 
 echo "✅ 选用的 compose 命令为: $COMPOSE_RUN"
 
-# ---------- 7. 拉取镜像 ----------
+# ---------- 8. 拉取镜像 ----------
 echo "📦 拉取 Docker 镜像及依赖"
 $COMPOSE_RUN pull
 
-# ---------- 8. 启动工程 ----------
+# ---------- 9. 启动工程 ----------
 echo "🚀 启动服务（$COMPOSE_RUN up -d）"
 $COMPOSE_RUN up -d --device CU128
 
-# ---------- 9. 获取公网IP与端口 ----------
+# ---------- 10. 获取公网IP与端口 ----------
 IP=$(curl -s http://ipinfo.io/ip)
 PORT=$(grep -m1 -A2 'ports:' docker-compose.yaml | grep -o '[0-9]\{4,5\}:[0-9]\{4,5\}' | head -n1 | awk -F: '{print $1}')
 if [ -z "$PORT" ]; then
@@ -115,7 +160,7 @@ echo "【公网访问地址】http://${IP}:${PORT}/"
 echo "【本机访问地址】http://localhost:${PORT}/"
 echo "=============================================="
 
-# ---------- 10. 实时日志监控 ----------
+# ---------- 11. 实时日志监控 ----------
 echo "----- 实时监控 compose 日志 -----"
 $COMPOSE_RUN logs -f
 
