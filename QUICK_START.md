@@ -202,4 +202,72 @@ chmod +x diagnose_system.sh
 
 ---
 
+## 📦 预训练模型下载
+
+### 必需的 3 个核心模型文件
+
+**位置**: `GPT_SoVITS/pretrained_models/gsv-v2final-pretrained/`
+
+**下载地址**: https://huggingface.co/lj1995/GPT-SoVITS/tree/main/gsv-v2final-pretrained
+
+| 文件名 | 大小 | 说明 |
+|--------|------|------|
+| `s1bert25hz-5kh-longer-epoch=12-step=369668.ckpt` | 155 MB | GPT 模型 |
+| `s2G2333k.pth` | 106 MB | Generator |
+| `s2D2333k.pth` | 93.5 MB | Discriminator |
+
+⚠️ **重要**: 文件名中的 `=` 号必须保留！
+
+### 自动下载模型
+
+```bash
+# 方式 1: 使用完整安装脚本
+bash auto_install.sh
+# 选择选项 2: HuggingFace 镜像 (国内推荐) ⭐
+
+# 方式 2: 使用模型修复脚本
+bash download_models_fix.sh
+# 选择选项 2
+```
+
+### 模型下载选项
+
+| 选项 | 适用场景 | 推荐度 |
+|------|----------|--------|
+| 1️⃣ HuggingFace 官方 | 有科学上网 | ⭐⭐⭐ |
+| 2️⃣ HuggingFace 镜像 | 国内网络 | ⭐⭐⭐⭐⭐ |
+| 3️⃣ ModelScope | ⚠️ 版本旧，不推荐 | ⭐ |
+| 4️⃣ 手动下载 | 备用方案 | ⭐⭐ |
+
+### 验证模型文件
+
+```bash
+# 检查文件是否存在
+ls -lh GPT_SoVITS/pretrained_models/gsv-v2final-pretrained/
+
+# 应该看到（总计约 355 MB）：
+# s1bert25hz-5kh-longer-epoch=12-step=369668.ckpt  (155 MB)
+# s2G2333k.pth                                     (106 MB)
+# s2D2333k.pth                                     (93.5 MB)
+```
+
+### 常见问题: FileNotFoundError
+
+如果启动时遇到找不到模型文件的错误：
+
+```bash
+# 清理旧模型
+rm -rf GPT_SoVITS/pretrained_models/gsv-v2final-pretrained/*
+
+# 重新下载（选择 HuggingFace 镜像）
+bash download_models_fix.sh
+
+# 重启容器
+docker compose restart
+```
+
+**详细说明**: 查看 `MODEL_DOWNLOAD_FIX.md`
+
+---
+
 **祝您使用愉快！** 🎉

@@ -169,10 +169,12 @@ if [ ! -f "$MODELS_DIR/gsv-v2final-pretrained/s1bert25hz-5kh-longer-epoch=12-ste
 fi
 
 if [ $NEED_DOWNLOAD -eq 1 ]; then
-    echo "⚠️  检测到缺少预训练模型 (约2.8GB)"
+    echo "⚠️  检测到缺少预训练模型 (总计约2.0GB)"
     echo ""
     echo "📋 这些模型是音色克隆和TTS功能的必要组件:"
-    echo "   1. GPT-SoVITS 基础模型 (~1.2GB) - 文本理解和语音生成"
+    echo "   1. GPT-SoVITS v2 基础模型 (约355MB) - 文本理解和语音生成"
+    echo "      • s1bert25hz-5kh-longer-epoch=12-step=369668.ckpt (155MB)"
+    echo "      • s2G2333k.pth (106MB) + s2D2333k.pth (93.5MB)"
     echo "   2. 中文 BERT 模型 (~1.2GB) - 中文语义理解"
     echo "   3. 中文 HuBERT 模型 (~400MB) - 音色特征提取"
     echo ""
@@ -196,13 +198,39 @@ if [ $NEED_DOWNLOAD -eq 1 ]; then
         cd $MODELS_DIR
 
         if [ "$download_method" = "1" ]; then
-            # HuggingFace 下载
-            echo "📥 从 HuggingFace 下载模型..."
+            # HuggingFace 官方源下载
+            echo "📥 从 HuggingFace 官方源下载模型..."
+
+            # 检查 git-lfs 是否安装
+            if ! command -v git-lfs &> /dev/null; then
+                echo "⚠️  警告: 未检测到 git-lfs，正在尝试安装..."
+                if command -v apt-get &> /dev/null; then
+                    sudo apt-get update && sudo apt-get install -y git-lfs
+                    git lfs install
+                else
+                    echo "❌ 无法自动安装 git-lfs，请手动安装后重试"
+                    echo "   或选择选项 2 (HuggingFace 镜像) 直接下载文件"
+                    exit 1
+                fi
+            fi
 
             if [ ! -f "gsv-v2final-pretrained/s1bert25hz-5kh-longer-epoch=12-step=369668.ckpt" ]; then
-                echo "[1/3] 下载 GPT-SoVITS 基础模型..."
+                echo "[1/3] 下载 GPT-SoVITS v2 预训练模型 (约 1.2GB)..."
                 rm -rf gsv-v2final-pretrained
-                git clone https://huggingface.co/lj1995/GPT-SoVITS gsv-v2final-pretrained
+
+                # 克隆整个仓库，但只下载 gsv-v2final-pretrained 目录的 LFS 文件
+                echo "   正在克隆仓库（可能需要几分钟）..."
+                git clone --depth=1 --filter=blob:none --sparse https://huggingface.co/lj1995/GPT-SoVITS temp-gpt-sovits
+
+                cd temp-gpt-sovits
+                git sparse-checkout set gsv-v2final-pretrained
+                git lfs pull --include="gsv-v2final-pretrained/s1bert25hz-5kh-longer-epoch=12-step=369668.ckpt,gsv-v2final-pretrained/s2G2333k.pth,gsv-v2final-pretrained/s2D2333k.pth"
+
+                # 移动文件到目标目录
+                cd ..
+                mv temp-gpt-sovits/gsv-v2final-pretrained ./
+                rm -rf temp-gpt-sovits
+
                 echo "✅ GPT-SoVITS 基础模型下载完成"
             else
                 echo "✅ [1/3] GPT-SoVITS 基础模型已存在，跳过"
@@ -251,7 +279,7 @@ if [ $NEED_DOWNLOAD -eq 1 ]; then
             BASE_URL="https://hf-mirror.com/lj1995/GPT-SoVITS/resolve/main/gsv-v2final-pretrained"
 
             # 下载 GPT-SoVITS 基础模型
-            echo "📦 [1/5] 下载 GPT 模型 checkpoint (~600MB)..."
+            echo "📦 [1/5] 下载 GPT 模型 checkpoint (155MB)..."
             cd gsv-v2final-pretrained
             if [ ! -f "s1bert25hz-5kh-longer-epoch=12-step=369668.ckpt" ]; then
                 $DOWNLOAD_CMD s1bert25hz-5kh-longer-epoch=12-step=369668.ckpt \
@@ -261,7 +289,7 @@ if [ $NEED_DOWNLOAD -eq 1 ]; then
                 echo "✅ GPT 模型已存在，跳过"
             fi
 
-            echo "📦 [2/5] 下载 SoVITS Generator 模型 (~300MB)..."
+            echo "📦 [2/5] 下载 SoVITS Generator 模型 (106MB)..."
             if [ ! -f "s2G2333k.pth" ]; then
                 $DOWNLOAD_CMD s2G2333k.pth \
                     "$BASE_URL/s2G2333k.pth"
@@ -270,7 +298,7 @@ if [ $NEED_DOWNLOAD -eq 1 ]; then
                 echo "✅ SoVITS Generator 已存在，跳过"
             fi
 
-            echo "📦 [3/5] 下载 SoVITS Discriminator 模型 (~300MB)..."
+            echo "📦 [3/5] 下载 SoVITS Discriminator 模型 (93.5MB)..."
             if [ ! -f "s2D2333k.pth" ]; then
                 $DOWNLOAD_CMD s2D2333k.pth \
                     "$BASE_URL/s2D2333k.pth"
@@ -335,17 +363,25 @@ if [ $NEED_DOWNLOAD -eq 1 ]; then
             fi
 
             # 下载 GPT-SoVITS 基础模型
-            echo "📦 [1/5] 下载 GPT 模型 checkpoint (~600MB)..."
+            echo "📦 [1/5] 下载 GPT 模型 checkpoint (155MB)..."
             cd gsv-v2final-pretrained
             if [ ! -f "s1bert25hz-5kh-longer-epoch=12-step=369668.ckpt" ]; then
                 $DOWNLOAD_CMD -o s1bert25hz-5kh-longer-epoch=12-step=369668.ckpt \
                     "https://www.modelscope.cn/api/v1/models/iic/speech_personal_sambert-hifigan_nsf_tts_zh-cn_pretrain_16k/repo?Revision=master&FilePath=s1bert25hz-5kh-longer-epoch%3D12-step%3D369668.ckpt"
+
+                # 检查文件是否存在，如果不存在说明 ModelScope 没有此版本
+                if [ ! -f "s1bert25hz-5kh-longer-epoch=12-step=369668.ckpt" ]; then
+                    echo "❌ ModelScope 源未找到此版本的模型文件！"
+                    echo "   请使用选项 2 (HuggingFace 镜像) 重新下载"
+                    cd ..
+                    exit 1
+                fi
                 echo "✅ GPT 模型下载完成"
             else
                 echo "✅ GPT 模型已存在，跳过"
             fi
 
-            echo "📦 [2/5] 下载 SoVITS Generator 模型 (~300MB)..."
+            echo "📦 [2/5] 下载 SoVITS Generator 模型 (106MB)..."
             if [ ! -f "s2G2333k.pth" ]; then
                 $DOWNLOAD_CMD -o s2G2333k.pth \
                     "https://www.modelscope.cn/api/v1/models/iic/speech_personal_sambert-hifigan_nsf_tts_zh-cn_pretrain_16k/repo?Revision=master&FilePath=s2G2333k.pth"
@@ -354,7 +390,7 @@ if [ $NEED_DOWNLOAD -eq 1 ]; then
                 echo "✅ SoVITS Generator 已存在，跳过"
             fi
 
-            echo "📦 [3/5] 下载 SoVITS Discriminator 模型 (~300MB)..."
+            echo "📦 [3/5] 下载 SoVITS Discriminator 模型 (93.5MB)..."
             if [ ! -f "s2D2333k.pth" ]; then
                 $DOWNLOAD_CMD -o s2D2333k.pth \
                     "https://www.modelscope.cn/api/v1/models/iic/speech_personal_sambert-hifigan_nsf_tts_zh-cn_pretrain_16k/repo?Revision=master&FilePath=s2D2333k.pth"
@@ -400,16 +436,23 @@ if [ $NEED_DOWNLOAD -eq 1 ]; then
             echo "⚠️  已跳过模型下载"
             echo ""
             echo "📋 手动下载指南："
-            echo "   访问 https://huggingface.co/lj1995/GPT-SoVITS/tree/main/gsv-v2final-pretrained"
             echo ""
-            echo "   下载以下文件到 GPT_SoVITS/pretrained_models/gsv-v2final-pretrained/ :"
-            echo "   - s1bert25hz-5kh-longer-epoch=12-step=369668.ckpt  (约 600MB)"
-            echo "   - s2G2333k.pth  (约 300MB)"
-            echo "   - s2D2333k.pth  (约 300MB)"
+            echo "1️⃣  GPT-SoVITS v2 预训练模型"
+            echo "   访问: https://huggingface.co/lj1995/GPT-SoVITS/tree/main/gsv-v2final-pretrained"
             echo ""
-            echo "   BERT 和 HuBERT 模型下载到 GPT_SoVITS/pretrained_models/ :"
-            echo "   - chinese-roberta-wwm-ext-large  (约 1.2GB)"
-            echo "   - chinese-hubert-base  (约 400MB)"
+            echo "   下载以下 3 个文件到 GPT_SoVITS/pretrained_models/gsv-v2final-pretrained/ :"
+            echo "   - s1bert25hz-5kh-longer-epoch=12-step=369668.ckpt  (155 MB)"
+            echo "   - s2G2333k.pth  (106 MB)"
+            echo "   - s2D2333k.pth  (93.5 MB)"
+            echo ""
+            echo "   ⚠️  注意：文件名中的 '=' 号必须保留，不要重命名！"
+            echo ""
+            echo "2️⃣  NLP 模型（下载到 GPT_SoVITS/pretrained_models/）"
+            echo "   - chinese-roberta-wwm-ext-large  (~1.2GB)"
+            echo "     https://huggingface.co/hfl/chinese-roberta-wwm-ext-large"
+            echo ""
+            echo "   - chinese-hubert-base  (~400MB)"
+            echo "     https://huggingface.co/TencentGameMate/chinese-hubert-base"
             echo ""
         else
             echo "❌ 无效选择"

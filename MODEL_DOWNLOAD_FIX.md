@@ -99,13 +99,16 @@ bash download_models_fix.sh
 ### 必需的 GPT-SoVITS v2 模型
 放置位置: `GPT_SoVITS/pretrained_models/gsv-v2final-pretrained/`
 
-- ✅ `s1bert25hz-5kh-longer-epoch=12-step=369668.ckpt` (~600MB)
-  - GPT 模型，用于文本理解和语音生成
+下载地址: https://huggingface.co/lj1995/GPT-SoVITS/tree/main/gsv-v2final-pretrained
 
-- ✅ `s2G2333k.pth` (~300MB)
+- ✅ `s1bert25hz-5kh-longer-epoch=12-step=369668.ckpt` (155 MB)
+  - GPT 模型，用于文本理解和语音生成
+  - ⚠️ 文件名中的 `=` 号必须保留！
+
+- ✅ `s2G2333k.pth` (106 MB)
   - SoVITS Generator，语音合成生成器
 
-- ✅ `s2D2333k.pth` (~300MB)
+- ✅ `s2D2333k.pth` (93.5 MB)
   - SoVITS Discriminator，语音质量判别器
 
 ### 必需的 NLP 模型
@@ -138,9 +141,10 @@ s2D2333k.pth
 du -sh GPT_SoVITS/pretrained_models/gsv-v2final-pretrained/*
 ```
 
-预期大小：
-- ckpt 文件约 600MB
-- pth 文件各约 300MB
+预期大小（总计约 355 MB）：
+- `s1bert25hz-5kh-longer-epoch=12-step=369668.ckpt`: 155 MB
+- `s2G2333k.pth`: 106 MB
+- `s2D2333k.pth`: 93.5 MB
 
 ### 启动测试
 
