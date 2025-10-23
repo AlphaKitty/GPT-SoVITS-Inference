@@ -496,6 +496,30 @@ if [ $NEED_DOWNLOAD -eq 1 ]; then
         else
             echo ""
             echo "✅ 所有关键模型文件验证通过！"
+
+            # 配置推理模型
+            echo ""
+            echo "🔧 配置推理模型目录..."
+            if [ -f "setup_inference_models.sh" ]; then
+                bash setup_inference_models.sh
+            else
+                echo "⚠️  未找到 setup_inference_models.sh，手动配置推理模型..."
+                mkdir -p GPT_weights_v4 SoVITS_weights_v4
+
+                if [ ! -f "GPT_weights_v4/s1bert25hz-5kh-longer-epoch=12-step=369668.ckpt" ]; then
+                    cp "$MODELS_DIR/gsv-v2final-pretrained/s1bert25hz-5kh-longer-epoch=12-step=369668.ckpt" GPT_weights_v4/ 2>/dev/null || true
+                fi
+
+                if [ ! -f "SoVITS_weights_v4/s2G2333k.pth" ]; then
+                    cp "$MODELS_DIR/gsv-v2final-pretrained/s2G2333k.pth" SoVITS_weights_v4/ 2>/dev/null || true
+                fi
+
+                if [ ! -f "SoVITS_weights_v4/s2D2333k.pth" ]; then
+                    cp "$MODELS_DIR/gsv-v2final-pretrained/s2D2333k.pth" SoVITS_weights_v4/ 2>/dev/null || true
+                fi
+
+                echo "✅ 推理模型配置完成"
+            fi
         fi
 
     else
@@ -511,12 +535,18 @@ echo ""
 echo "📦 拉取 Docker 镜像及依赖"
 $COMPOSE_RUN pull
 
-# ---------- 10. 启动工程 ----------
+# ---------- 10. 停止旧容器 ----------
+echo ""
+echo "🛑 停止并清理旧容器（如果存在）..."
+$COMPOSE_RUN down 2>/dev/null || true
+echo "✅ 清理完成"
+
+# ---------- 11. 启动工程 ----------
 echo ""
 echo "🚀 启动服务（$COMPOSE_RUN up -d）"
 $COMPOSE_RUN up -d
 
-# ---------- 11. 获取公网IP与端口 ----------
+# ---------- 12. 获取公网IP与端口 ----------
 IP=$(curl -s http://ipinfo.io/ip)
 PORT=$(grep -m1 -A2 'ports:' docker-compose.yaml | grep -o '[0-9]\{4,5\}:[0-9]\{4,5\}' | head -n1 | awk -F: '{print $1}')
 if [ -z "$PORT" ]; then
@@ -540,7 +570,7 @@ echo "   3. 输入参考文本和目标文本"
 echo "   4. 生成克隆音色的语音"
 echo "==============================================="
 
-# ---------- 12. 实时日志监控 ----------
+# ---------- 13. 实时日志监控 ----------
 echo ""
 echo "----- 实时监控 compose 日志 -----"
 $COMPOSE_RUN logs -f

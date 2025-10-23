@@ -70,10 +70,10 @@ class inferWithEmotions(BaseModel):
     dl_url: str = ""
     version: str = "v4"
     model_name: str = ""
-    prompt_text_lang: str = ""
-    emotion: str = ""
-    text: str = ""
-    text_lang: str = ""
+    prompt_text_lang: str = "中文"
+    emotion: str = "默认"
+    text: str = "你好，我是小明，很高兴认识你。"
+    text_lang: str = "中文"
     top_k: int = 10
     top_p: float = 1.0
     temperature: float = 1.0
@@ -93,7 +93,7 @@ class inferWithEmotions(BaseModel):
 class inferWithMulti(BaseModel):
     app_key: str = ""
     dl_url: str = ""
-    content : str = ""
+    content : str = "你好，我是小明，很高兴认识你。"
     top_k: int = 10
     top_p: float = 1.0
     temperature: float = 1.0
@@ -117,7 +117,7 @@ class inferWithClassic(BaseModel):
     gpt_model_name: str = ""
     sovits_model_name: str = ""
     ref_audio_path: str = ""
-    prompt_text: str = ""
+    prompt_text: str = "你好，我是小明，很高兴认识你。"
     prompt_text_lang: str = ""
     text: str = ""
     text_lang: str = ""

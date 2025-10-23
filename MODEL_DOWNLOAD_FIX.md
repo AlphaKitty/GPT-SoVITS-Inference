@@ -97,9 +97,11 @@ bash download_models_fix.sh
 ## 模型文件清单
 
 ### 必需的 GPT-SoVITS v2 模型
-放置位置: `GPT_SoVITS/pretrained_models/gsv-v2final-pretrained/`
 
-下载地址: https://huggingface.co/lj1995/GPT-SoVITS/tree/main/gsv-v2final-pretrained
+#### 1️⃣ 预训练模型（用于训练）
+**放置位置**: `GPT_SoVITS/pretrained_models/gsv-v2final-pretrained/`
+
+**下载地址**: https://huggingface.co/lj1995/GPT-SoVITS/tree/main/gsv-v2final-pretrained
 
 - ✅ `s1bert25hz-5kh-longer-epoch=12-step=369668.ckpt` (155 MB)
   - GPT 模型，用于文本理解和语音生成
@@ -110,6 +112,25 @@ bash download_models_fix.sh
 
 - ✅ `s2D2333k.pth` (93.5 MB)
   - SoVITS Discriminator，语音质量判别器
+
+#### 2️⃣ 推理模型（用于音色克隆）
+**放置位置**: `GPT_weights_v4/` 和 `SoVITS_weights_v4/`
+
+**来源**: 从预训练模型复制/链接
+
+```
+GPT_weights_v4/
+  └── s1bert25hz-5kh-longer-epoch=12-step=369668.ckpt  (复制或链接)
+
+SoVITS_weights_v4/
+  ├── s2G2333k.pth  (复制或链接)
+  └── s2D2333k.pth  (复制或链接)
+```
+
+**⚠️ 重要**: `auto_install.sh` 会自动配置推理模型目录。如果手动下载，需要运行：
+```bash
+bash setup_inference_models.sh
+```
 
 ### 必需的 NLP 模型
 放置位置: `GPT_SoVITS/pretrained_models/`
@@ -149,7 +170,10 @@ du -sh GPT_SoVITS/pretrained_models/gsv-v2final-pretrained/*
 ### 启动测试
 
 ```bash
-docker compose restart
+# 清理并重启容器（推荐，确保干净启动）
+docker compose down && docker compose up -d
+
+# 查看日志
 docker compose logs -f
 ```
 

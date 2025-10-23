@@ -262,8 +262,11 @@ rm -rf GPT_SoVITS/pretrained_models/gsv-v2final-pretrained/*
 # 重新下载（选择 HuggingFace 镜像）
 bash download_models_fix.sh
 
-# 重启容器
-docker compose restart
+# 清理并重启容器（推荐）
+docker compose down && docker compose up -d
+
+# 查看日志
+docker compose logs -f
 ```
 
 **详细说明**: 查看 `MODEL_DOWNLOAD_FIX.md`
