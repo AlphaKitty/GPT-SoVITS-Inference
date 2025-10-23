@@ -36,15 +36,52 @@ check_user() {
     fi
 }
 
+# 检测系统类型
+detect_os() {
+    # 优先检查 /etc/os-release 文件
+    if [ -f /etc/os-release ]; then
+        . /etc/os-release
+        OS_TYPE=$ID
+        OS_VERSION=$VERSION_ID
+        OS_NAME=$NAME
+        print_info "检测到系统: $NAME $VERSION"
+        return 0
+    elif [ -f /etc/lsb-release ]; then
+        . /etc/lsb-release
+        OS_TYPE=$(echo "$DISTRIB_ID" | tr '[:upper:]' '[:lower:]')
+        OS_VERSION=$DISTRIB_RELEASE
+        OS_NAME=$DISTRIB_DESCRIPTION
+        print_info "检测到系统: $DISTRIB_DESCRIPTION"
+        return 0
+    else
+        print_warning "无法从配置文件检测系统类型"
+        # 尝试使用 uname
+        OS_TYPE=$(uname -s | tr '[:upper:]' '[:lower:]')
+        OS_VERSION=$(uname -r)
+        OS_NAME="$OS_TYPE $OS_VERSION"
+        print_info "系统信息: $OS_NAME"
+        return 1
+    fi
+}
+
 # 安装 Docker
 install_docker() {
     print_info "开始安装 Docker..."
 
-    # 检查是否为 Ubuntu/Debian 系统
-    if ! command -v apt-get &> /dev/null; then
-        print_error "此脚本仅支持 Ubuntu/Debian 系统"
+    # 检测系统类型
+    detect_os
+
+    # 检查是否有 apt-get（Ubuntu/Debian 的包管理器）
+    if ! command -v apt-get &> /dev/null && ! command -v apt &> /dev/null; then
+        print_error "此脚本仅支持 Ubuntu/Debian 系统（需要 apt/apt-get）"
+        if [ "$OS_TYPE" != "unknown" ]; then
+            print_info "检测到的系统类型: $OS_TYPE"
+        fi
+        print_info "如果您使用的是 Ubuntu/Debian，请确保已安装 apt 或 apt-get"
         exit 1
     fi
+
+    print_success "系统检查通过，开始安装 Docker..."
 
     # 更新包索引
     print_info "更新系统包索引..."
