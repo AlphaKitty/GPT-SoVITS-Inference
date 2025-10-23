@@ -2,6 +2,22 @@
 
 本指南提供在 Ubuntu 系统下使用 Docker Compose 启动 GPT-SoVITS 的完整说明。
 
+> 🎉 **新功能**: `start_docker.sh` 现在支持自动安装 Docker、Docker Compose 和 NVIDIA Container Toolkit！
+>
+> 即使是全新的 Ubuntu 系统，只需一个命令即可完成所有安装和配置！
+
+## 🚀 极速启动（零配置）
+
+如果您的系统还没有安装 Docker，不用担心！只需：
+
+```bash
+# 给予执行权限并运行
+chmod +x start_docker.sh
+./start_docker.sh
+```
+
+脚本会自动检测缺少的依赖，并询问您是否自动安装。整个过程完全自动化！
+
 ## 目录
 
 - [前置要求](#前置要求)
@@ -72,7 +88,24 @@ docker run --rm --gpus all nvidia/cuda:12.0.0-base-ubuntu20.04 nvidia-smi
 
 ## 快速开始
 
-### 方法 1: 使用快速启动脚本 (推荐用于快速测试)
+### ⚡ 一键启动 (推荐，自动安装所有依赖)
+
+```bash
+# 给予执行权限
+chmod +x start_docker.sh
+
+# 启动服务 (自动检测并安装 Docker、Docker Compose 和 NVIDIA Toolkit)
+./start_docker.sh
+```
+
+**start_docker.sh 会自动：**
+- ✅ 检测并安装 Docker（如果未安装）
+- ✅ 检测并安装 Docker Compose（如果未安装）
+- ✅ 检测 GPU 并询问是否安装 NVIDIA Container Toolkit
+- ✅ 配置 Docker 用户组权限
+- ✅ 拉取最新镜像并启动服务
+
+### 方法 2: 快速启动脚本 (需要预先安装依赖)
 
 ```bash
 # 给予执行权限
@@ -80,16 +113,6 @@ chmod +x quick_start.sh
 
 # 启动服务 (默认使用 CUDA 12.8 完整版)
 ./quick_start.sh
-```
-
-### 方法 2: 使用完整启动脚本 (推荐)
-
-```bash
-# 给予执行权限
-chmod +x start_docker.sh
-
-# 启动服务 (带交互式选项)
-./start_docker.sh
 ```
 
 ### 方法 3: 使用 Docker Compose 命令
@@ -164,22 +187,36 @@ docker compose down
 
 ## 脚本说明
 
-### start_docker.sh
+### start_docker.sh ⭐ (推荐)
 
 完整的启动脚本，包含以下功能：
 
-- ✅ 环境检查 (Docker, Docker Compose, NVIDIA GPU)
-- ✅ 交互式服务选择
-- ✅ 镜像拉取
-- ✅ 服务启动
-- ✅ 状态显示
-- ✅ 日志查看选项
+- ✅ 自动检测并安装 Docker（如果未安装）
+- ✅ 自动检测并安装 Docker Compose（如果未安装）
+- ✅ 自动检测 GPU 并询问是否安装 NVIDIA Container Toolkit
+- ✅ 自动配置 Docker 用户组权限
+- ✅ 交互式服务版本选择
+- ✅ 自动拉取最新镜像
+- ✅ 服务启动和状态显示
+- ✅ 可选日志查看
 
 **使用方法：**
 
 ```bash
+chmod +x start_docker.sh
 ./start_docker.sh
 ```
+
+**脚本流程：**
+
+1. 检查系统环境和用户权限
+2. 检查 Docker 是否安装，如未安装则询问是否自动安装
+3. 检查 Docker Compose 是否安装，如未安装则询问是否自动安装
+4. 检查 NVIDIA GPU 和 Container Toolkit，如有 GPU 但未安装工具包则询问是否安装
+5. 让您选择要启动的服务版本
+6. 询问是否拉取最新镜像
+7. 启动服务并显示访问地址
+8. 询问是否查看实时日志
 
 ### stop_docker.sh
 

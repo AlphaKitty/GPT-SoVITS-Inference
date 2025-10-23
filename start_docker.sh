@@ -36,26 +36,177 @@ check_user() {
     fi
 }
 
+# 安装 Docker
+install_docker() {
+    print_info "开始安装 Docker..."
+
+    # 检查是否为 Ubuntu/Debian 系统
+    if ! command -v apt-get &> /dev/null; then
+        print_error "此脚本仅支持 Ubuntu/Debian 系统"
+        exit 1
+    fi
+
+    # 更新包索引
+    print_info "更新系统包索引..."
+    sudo apt-get update
+
+    # 安装必要的依赖
+    print_info "安装依赖包..."
+    sudo apt-get install -y \
+        ca-certificates \
+        curl \
+        gnupg \
+        lsb-release
+
+    # 使用官方安装脚本安装 Docker
+    print_info "下载并执行 Docker 官方安装脚本..."
+    curl -fsSL https://get.docker.com | sudo bash
+
+    # 将当前用户添加到 docker 组
+    print_info "将当前用户添加到 docker 组..."
+    sudo usermod -aG docker $USER
+
+    # 启动 Docker 服务
+    print_info "启动 Docker 服务..."
+    sudo systemctl enable docker
+    sudo systemctl start docker
+
+    print_success "Docker 安装完成"
+    print_warning "请注意: 您需要重新登录或执行 'newgrp docker' 命令以使组权限生效"
+
+    # 询问是否立即应用组权限
+    read -p "是否立即应用 docker 组权限? (y/n, 默认 y): " apply_group
+    apply_group=${apply_group:-y}
+
+    if [ "$apply_group" = "y" ] || [ "$apply_group" = "Y" ]; then
+        print_info "应用 docker 组权限..."
+        newgrp docker << EONG
+        print_success "组权限已应用"
+EONG
+    fi
+}
+
+# 安装 Docker Compose
+install_docker_compose() {
+    print_info "开始安装 Docker Compose..."
+
+    # 更新包索引
+    sudo apt-get update
+
+    # 安装 Docker Compose 插件
+    print_info "安装 Docker Compose 插件..."
+    sudo apt-get install -y docker-compose-plugin
+
+    print_success "Docker Compose 安装完成"
+}
+
 # 检查 Docker 是否安装
 check_docker() {
     print_info "检查 Docker 是否安装..."
     if ! command -v docker &> /dev/null; then
-        print_error "Docker 未安装，请先安装 Docker"
-        print_info "安装命令: curl -fsSL https://get.docker.com | bash"
-        exit 1
+        print_warning "Docker 未安装"
+
+        # 询问是否自动安装
+        read -p "是否自动安装 Docker? (y/n, 默认 y): " install
+        install=${install:-y}
+
+        if [ "$install" = "y" ] || [ "$install" = "Y" ]; then
+            install_docker
+
+            # 验证安装
+            if ! command -v docker &> /dev/null; then
+                print_error "Docker 安装失败"
+                exit 1
+            fi
+            print_success "Docker 已安装: $(docker --version)"
+        else
+            print_error "Docker 是必需的，无法继续"
+            print_info "手动安装命令: curl -fsSL https://get.docker.com | bash"
+            exit 1
+        fi
+    else
+        print_success "Docker 已安装: $(docker --version)"
     fi
-    print_success "Docker 已安装: $(docker --version)"
 }
 
 # 检查 Docker Compose 是否安装
 check_docker_compose() {
     print_info "检查 Docker Compose 是否安装..."
     if ! command -v docker compose &> /dev/null; then
-        print_error "Docker Compose 未安装，请先安装 Docker Compose"
-        print_info "安装命令: sudo apt-get install docker-compose-plugin"
-        exit 1
+        print_warning "Docker Compose 未安装"
+
+        # 询问是否自动安装
+        read -p "是否自动安装 Docker Compose? (y/n, 默认 y): " install
+        install=${install:-y}
+
+        if [ "$install" = "y" ] || [ "$install" = "Y" ]; then
+            install_docker_compose
+
+            # 验证安装
+            if ! command -v docker compose &> /dev/null; then
+                print_error "Docker Compose 安装失败"
+                exit 1
+            fi
+            print_success "Docker Compose 已安装: $(docker compose version)"
+        else
+            print_error "Docker Compose 是必需的，无法继续"
+            print_info "手动安装命令: sudo apt-get install docker-compose-plugin"
+            exit 1
+        fi
+    else
+        print_success "Docker Compose 已安装: $(docker compose version)"
     fi
-    print_success "Docker Compose 已安装: $(docker compose version)"
+}
+
+# 安装 NVIDIA Container Toolkit
+install_nvidia_toolkit() {
+    print_info "开始安装 NVIDIA Container Toolkit..."
+
+    # 检查是否已安装 NVIDIA 驱动
+    if ! command -v nvidia-smi &> /dev/null; then
+        print_error "未检测到 NVIDIA 驱动，请先安装 NVIDIA 驱动"
+        print_info "安装 NVIDIA 驱动: sudo apt-get install nvidia-driver-535"
+        return 1
+    fi
+
+    # 配置 NVIDIA 仓库
+    print_info "配置 NVIDIA 仓库..."
+    distribution=$(. /etc/os-release;echo $ID$VERSION_ID)
+
+    # 添加 GPG 密钥
+    curl -fsSL https://nvidia.github.io/libnvidia-container/gpgkey | sudo gpg --dearmor -o /usr/share/keyrings/nvidia-container-toolkit-keyring.gpg
+
+    # 添加仓库
+    curl -s -L https://nvidia.github.io/libnvidia-container/$distribution/libnvidia-container.list | \
+        sed 's#deb https://#deb [signed-by=/usr/share/keyrings/nvidia-container-toolkit-keyring.gpg] https://#g' | \
+        sudo tee /etc/apt/sources.list.d/nvidia-container-toolkit.list
+
+    # 更新包索引
+    sudo apt-get update
+
+    # 安装 NVIDIA Container Toolkit
+    print_info "安装 NVIDIA Container Toolkit..."
+    sudo apt-get install -y nvidia-container-toolkit
+
+    # 配置 Docker 运行时
+    print_info "配置 Docker 运行时..."
+    sudo nvidia-ctk runtime configure --runtime=docker
+
+    # 重启 Docker 服务
+    print_info "重启 Docker 服务..."
+    sudo systemctl restart docker
+
+    print_success "NVIDIA Container Toolkit 安装完成"
+
+    # 验证安装
+    print_info "验证 GPU 在 Docker 中可用..."
+    if docker run --rm --gpus all nvidia/cuda:12.0.0-base-ubuntu20.04 nvidia-smi &> /dev/null; then
+        print_success "GPU 在 Docker 中可用"
+        return 0
+    else
+        print_warning "GPU 验证失败，但工具包已安装"
+        return 1
+    fi
 }
 
 # 检查 NVIDIA Docker 支持（用于 GPU）
@@ -70,9 +221,24 @@ check_nvidia_docker() {
             print_success "NVIDIA Container Toolkit 已配置"
             USE_GPU=true
         else
-            print_warning "NVIDIA Container Toolkit 未配置，将使用 CPU 模式"
-            print_info "安装 NVIDIA Container Toolkit: https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/install-guide.html"
-            USE_GPU=false
+            print_warning "NVIDIA Container Toolkit 未配置"
+
+            # 询问是否安装 NVIDIA Container Toolkit
+            read -p "是否安装 NVIDIA Container Toolkit 以启用 GPU 支持? (y/n, 默认 y): " install_nvidia
+            install_nvidia=${install_nvidia:-y}
+
+            if [ "$install_nvidia" = "y" ] || [ "$install_nvidia" = "Y" ]; then
+                if install_nvidia_toolkit; then
+                    USE_GPU=true
+                else
+                    print_warning "将使用 CPU 模式"
+                    USE_GPU=false
+                fi
+            else
+                print_warning "将使用 CPU 模式"
+                print_info "手动安装命令: https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/install-guide.html"
+                USE_GPU=false
+            fi
         fi
     else
         print_warning "未检测到 NVIDIA GPU，将使用 CPU 模式"
