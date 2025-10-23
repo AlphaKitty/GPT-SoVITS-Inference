@@ -178,7 +178,7 @@ if [ $NEED_DOWNLOAD -eq 1 ]; then
     echo ""
 
     read -p "是否现在下载? (y/n): " download_confirm
-    if [ "$download_confirm" = "y" ]; then
+    if [ "$download_confirm" = "y" ] || [ "$download_confirm" = "Y" ] || [ -z "$download_confirm" ]; then
         # 创建目录
         mkdir -p $MODELS_DIR/gsv-v2final-pretrained
         mkdir -p $MODELS_DIR/chinese-roberta-wwm-ext-large
